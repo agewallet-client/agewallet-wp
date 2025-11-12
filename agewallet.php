@@ -2,7 +2,7 @@
     /**
     * Plugin Name: AgeWallet OIDC Client
     * Description: Secure AgeWallet OIDC flow for WordPress using transients and client-side gating for cache compatibility.
-    * Version:     1.0.0
+    * Version:     1.0.1
     * Author:      AgeWallet LLC
     * Author URI:  https://agewallet.com
     * License:     GPL-2.0+
@@ -29,7 +29,7 @@
     defined('ABSPATH') || exit;
 
     // Define essential plugin constants.
-    define('AGEWALLET_VERSION', '1.0.0');
+    define('AGEWALLET_VERSION', '1.0.1');
     define('AGEWALLET_PLUGIN_FILE', __FILE__);
     define('AGEWALLET_PLUGIN_DIR', plugin_dir_path(__FILE__));
     define('AGEWALLET_PLUGIN_URL', plugin_dir_url(__FILE__));
