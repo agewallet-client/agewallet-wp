@@ -1,0 +1,446 @@
+/**
+ * AgeWallet Client-Side Gate Stylesheet
+ *
+ * Styles for the age verification gate prompt (used by shortcode and overlay)
+ * and the overlay container itself.
+ * Includes styles for protected content shortcode wrappers.
+ *
+ * @since 0.1.0
+ */
+
+:root {
+  --aw-bg: #000;
+  --aw-card: #0d0d10;
+  --aw-card-border: #1e1e24;
+  --aw-text: #f5f7fb;
+  --aw-muted: #c8cbd4;
+  --aw-danger: #ff4d4f;
+  --aw-purple: #6a1b9a;      /* AgeWallet purple */
+  --aw-purple-700: #5a1784;  /* hover/darker */
+  --aw-shadow: 0 10px 30px rgba(0,0,0,.45);
+  --aw-radius: 16px;
+  --aw-text-light-bg: #111; /* Text color for light backgrounds */
+  --aw-muted-light-bg: #666; /* Muted text color for light backgrounds */
+  --aw-no-btn-light-bg: #f5f5f5; /* Background for 'No' button on light BG */
+  --aw-no-btn-light-border: #ddd; /* Border for 'No' button on light BG */
+  --aw-no-btn-light-text: #333; /* Text for 'No' button on light BG */
+  --aw-no-btn-dark-bg: #2a2a32; /* Background for 'No' button on dark BG */
+  --aw-no-btn-dark-border: #3a3a44; /* Border for 'No' button on dark BG */
+  --aw-no-btn-dark-text: #cdd0d7; /* Text for 'No' button on dark BG */
+}
+
+/* --- Initial Hiding --- */
+/*
+ * Applied via PHP body_class filter when gating might be active.
+ * Hides the entire page body until the gate.js script runs.
+ * The script removes this class after checking the cookie.
+ */
+body.agewallet-gated-pending {
+  visibility: hidden !important; /* Use !important to override theme styles if necessary */
+  opacity: 0 !important;
+}
+/* Ensure visibility once JS has run, even if overlay is shown */
+body.agewallet-overlay-active {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* --- Overlay Container --- */
+/*
+ * Styles for the full-screen div injected by gate.js
+ * when the verification cookie is missing.
+ */
+.aw-gate__overlay {
+  position: fixed !important; /* Use !important to override potential theme conflicts */
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: var(--aw-bg, #000) !important; /* Use dark background for overlay */
+  z-index: 9999999 !important; /* Very high z-index */
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 24px !important; /* Consistent padding */
+  box-sizing: border-box !important; /* Include padding in dimensions */
+  overflow-y: auto !important; /* Allow scrolling if content is too tall */
+}
+/* Ensure the gate inside the overlay adopts the dark theme */
+/* Use !important selectively if needed to ensure theme override */
+.aw-gate__overlay .aw-gate {
+  background: var(--aw-card);
+  border: 1px solid var(--aw-card-border);
+  box-shadow: var(--aw-shadow);
+  color: var(--aw-text);
+  border-radius: var(--aw-radius); /* Ensure consistent radius */
+  /* Max width set in .aw-gate base rule */
+  /* Width: 100% set in .aw-gate base rule */
+  margin-left: auto; /* Keep centered */
+  margin-right: auto; /* Keep centered */
+}
+
+/* Verify page shell styles (Used if gate is displayed on its own page, less relevant for overlay) */
+body.aw-verify-body {
+  margin: 0;
+  background: var(--aw-bg);
+  color: var(--aw-text);
+  font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.aw-verify-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.aw-verify-inner {
+  max-width: 720px;
+  width: 100%;
+}
+
+/* Base Gate/card styles */
+.aw-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 28px 22px; /* Consistent padding */
+  border-radius: var(--aw-radius); /* Consistent radius */
+  box-sizing: border-box;
+  max-width: 560px; /* Max width */
+  margin-left: auto; /* Centering if container is wider */
+  margin-right: auto; /* Centering if container is wider */
+  width: 100%; /* Take up container width up to max-width */
+
+  /* Default light theme (can be overridden by .aw-gate__card or in overlay) */
+  background: #fff;
+  border: 1px solid #eee;
+  color: var(--aw-text-light-bg);
+}
+
+/* Dark theme specific overrides (used by original /verify page and overlay) */
+.aw-gate__card.aw-gate { /* More specific selector to ensure override */
+  background: var(--aw-card);
+  border: 1px solid var(--aw-card-border);
+  box-shadow: var(--aw-shadow);
+  color: var(--aw-text);
+}
+
+/* Logo */
+.aw-gate__logo-wrap {
+  margin-bottom: 20px; /* Increased margin */
+  text-align: center;
+  width: 100%; /* Ensure it spans width for centering */
+}
+
+.aw-gate__logo {
+  display: inline-block; /* Ensure it respects text-align */
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle; /* Better alignment if text is nearby */
+}
+
+/* Typography */
+.aw-gate__title {
+  margin: 0 0 16px 0; /* Adjusted margin */
+  font-size: clamp(22px, 4vw, 32px); /* Responsive font size */
+  line-height: 1.25;
+  font-weight: 700; /* Ensure heading is bold */
+  letter-spacing: .2px;
+  color: inherit; /* Inherit color from parent (.aw-gate or .aw-gate__card) */
+}
+
+.aw-gate__desc {
+  margin: 0 0 24px 0; /* Increased margin */
+  color: inherit;
+  opacity: .9;
+  line-height: 1.6; /* Improve readability */
+  max-width: 90%; /* Prevent overly wide lines */
+}
+
+/* Ensure paragraphs inside description have standard margin */
+.aw-gate__desc p {
+    margin-top: 0;
+    margin-bottom: 1em;
+}
+.aw-gate__desc p:last-child {
+    margin-bottom: 0;
+}
+
+/* Links within description */
+.aw-gate__desc a {
+  color: var(--aw-purple);
+  text-decoration: none;
+}
+.aw-gate__desc a:hover,
+.aw-gate__desc a:focus {
+  color: var(--aw-purple-700);
+  text-decoration: underline;
+}
+
+/* Dark theme link overrides */
+.aw-gate__card .aw-gate__desc a,
+.aw-gate__overlay .aw-gate__desc a { /* Apply to overlay too */
+   color: var(--aw-text); /* Brighter link on dark */
+   text-decoration: underline;
+}
+.aw-gate__card .aw-gate__desc a:hover,
+.aw-gate__card .aw-gate__desc a:focus,
+.aw-gate__overlay .aw-gate__desc a:hover,
+.aw-gate__overlay .aw-gate__desc a:focus {
+   color: var(--aw-muted); /* Muted hover on dark */
+}
+
+
+/* Disclaimer text */
+.aw-gate__disclaimer {
+  margin-top: 20px; /* Increased margin */
+  font-size: 13px; /* Slightly larger */
+  line-height: 1.5;
+  color: var(--aw-muted-light-bg); /* Muted color on light BG */
+  text-align: center;
+  width: 100%;
+}
+
+.aw-gate__disclaimer a {
+  color: var(--aw-purple);
+  text-decoration: none;
+}
+.aw-gate__disclaimer a:hover,
+.aw-gate__disclaimer a:focus {
+  color: var(--aw-purple-700);
+  text-decoration: underline;
+}
+
+/* Dark theme disclaimer overrides */
+.aw-gate__card .aw-gate__disclaimer,
+.aw-gate__overlay .aw-gate__disclaimer { /* Apply to overlay too */
+  color: var(--aw-muted); /* Muted color on dark BG */
+}
+.aw-gate__card .aw-gate__disclaimer a,
+.aw-gate__overlay .aw-gate__disclaimer a {
+  color: var(--aw-muted); /* Keep link muted on dark */
+}
+.aw-gate__card .aw-gate__disclaimer a:hover,
+.aw-gate__card .aw-gate__disclaimer a:focus,
+.aw-gate__overlay .aw-gate__disclaimer a:hover,
+.aw-gate__overlay .aw-gate__disclaimer a:focus {
+  color: var(--aw-text); /* Brighten on hover/focus */
+}
+
+
+/* Error message */
+.aw-gate__error {
+  margin-top: 16px; /* Increased margin */
+  color: var(--aw-danger);
+  font-weight: 600;
+  display: none; /* Initially hidden */
+  text-align: center;
+  width: 100%;
+  font-size: 14px; /* Slightly larger */
+}
+
+
+/* Buttons container */
+.aw-gate__buttons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
+  gap: 12px; /* Space between buttons */
+  margin-top: 16px; /* Adjusted margin */
+  width: 100%; /* Ensure container takes width for centering */
+}
+
+/* Base button styles */
+.aw-gate__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px; /* Slightly taller */
+  padding: 10px 24px; /* Adjust padding */
+  border: 1px solid transparent; /* Base border */
+  border-radius: 12px !important; /* Unified radius */
+  font-size: 16px; /* Ensure readable font size */
+  font-weight: 700;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .1s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease, color .2s ease;
+  user-select: none;
+  outline: none;
+  box-sizing: border-box;
+  flex-grow: 0; /* Prevent buttons stretching unnecessarily */
+  flex-shrink: 0;
+}
+
+/* Ensure no extra margin between adjacent buttons handled by gap */
+.aw-gate__btn + .aw-gate__btn {
+  margin-left: 0;
+}
+
+
+/* "No" button styles */
+.aw-gate__btn--no {
+  /* Default light theme */
+  background: var(--aw-no-btn-light-bg);
+  border-color: var(--aw-no-btn-light-border);
+  color: var(--aw-no-btn-light-text);
+  filter: grayscale(80%); /* Slightly less intense grayscale */
+}
+
+/* Dark theme "No" button */
+.aw-gate__card .aw-gate__btn--no,
+.aw-gate__overlay .aw-gate__btn--no { /* Apply dark style to overlay */
+  background: var(--aw-no-btn-dark-bg);
+  border-color: var(--aw-no-btn-dark-border);
+  color: var(--aw-no-btn-dark-text);
+  filter: none; /* No grayscale needed on dark */
+}
+
+.aw-gate__btn--no:hover,
+.aw-gate__btn--no:focus {
+  transform: translateY(-1px);
+  filter: grayscale(50%); /* Reduce grayscale on hover */
+}
+.aw-gate__card .aw-gate__btn--no:hover,
+.aw-gate__card .aw-gate__btn--no:focus,
+.aw-gate__overlay .aw-gate__btn--no:hover,
+.aw-gate__overlay .aw-gate__btn--no:focus { /* Dark hover */
+    filter: none;
+    background: #3a3a44; /* Darken slightly on hover */
+    border-color: #4a4a54;
+}
+
+.aw-gate__btn--no:active {
+  transform: translateY(0);
+  filter: none;
+}
+
+
+/* "Yes" button styles (purple) */
+.aw-gate__btn--yes {
+  background: var(--aw-purple);
+  border-color: var(--aw-purple);
+  color: #fff;
+  box-shadow: 0 6px 15px rgba(106, 27, 154, 0.25); /* Adjusted shadow */
+}
+
+.aw-gate__btn--yes:hover,
+.aw-gate__btn--yes:focus {
+  background: var(--aw-purple-700);
+  border-color: var(--aw-purple-700);
+  transform: translateY(-1px);
+  color: #fff; /* Ensure text remains white */
+  box-shadow: 0 8px 20px rgba(106, 27, 154, 0.30); /* Slightly larger shadow on hover */
+}
+
+.aw-gate__btn--yes:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 10px rgba(106, 27, 154, 0.20); /* Smaller shadow on active */
+}
+
+
+/* Focus ring - ensure visibility on both light and dark */
+.aw-gate__btn:focus-visible {
+  outline: 2px solid var(--aw-purple);
+  outline-offset: 2px;
+  box-shadow: none; /* Remove other shadows when focused */
+}
+.aw-gate__card .aw-gate__btn:focus-visible,
+.aw-gate__overlay .aw-gate__btn:focus-visible { /* Dark focus outline */
+  outline-color: var(--aw-text);
+}
+
+
+/* --- Protected Content Shortcode Wrappers --- */
+.agewallet-protected-wrapper {
+  /* Basic wrapper, no specific styles needed unless layout requires it */
+  margin-bottom: 1em; /* Add some space below the block */
+}
+
+.agewallet-protected-placeholder {
+  /* Default state is display: block via inline style from PHP */
+  /* Style the placeholder container - e.g., border, padding */
+  border: 1px dashed #ccc;
+  padding: 1em;
+  background-color: #f9f9f9;
+}
+/* Ensure the gate prompt inside the placeholder uses light theme */
+.agewallet-protected-placeholder .aw-gate {
+  background: #fff;
+  border: 1px solid #eee;
+  color: var(--aw-text-light-bg);
+  box-shadow: none; /* Remove shadow for inline placeholder */
+  border-radius: 8px; /* Maybe simpler radius? */
+  padding: 1.5em; /* Adjust padding */
+}
+/* Adjust nested elements if needed */
+.agewallet-protected-placeholder .aw-gate__desc {
+  max-width: 100%;
+}
+.agewallet-protected-placeholder .aw-gate__disclaimer {
+  font-size: 12px;
+}
+/* Ensure dark theme styles do not apply */
+.agewallet-protected-placeholder .aw-gate__desc a {
+  color: var(--aw-purple);
+}
+.agewallet-protected-placeholder .aw-gate__desc a:hover,
+.agewallet-protected-placeholder .aw-gate__desc a:focus {
+  color: var(--aw-purple-700);
+}
+.agewallet-protected-placeholder .aw-gate__disclaimer {
+  color: var(--aw-muted-light-bg);
+}
+.agewallet-protected-placeholder .aw-gate__disclaimer a {
+  color: var(--aw-purple);
+}
+.agewallet-protected-placeholder .aw-gate__disclaimer a:hover,
+.agewallet-protected-placeholder .aw-gate__disclaimer a:focus {
+  color: var(--aw-purple-700);
+}
+.agewallet-protected-placeholder .aw-gate__btn--no {
+  background: var(--aw-no-btn-light-bg);
+  border-color: var(--aw-no-btn-light-border);
+  color: var(--aw-no-btn-light-text);
+  filter: grayscale(80%);
+}
+.agewallet-protected-placeholder .aw-gate__btn--no:hover,
+.agewallet-protected-placeholder .aw-gate__btn--no:focus {
+  transform: translateY(-1px);
+  filter: grayscale(50%);
+}
+.agewallet-protected-placeholder .aw-gate__btn:focus-visible {
+  outline-color: var(--aw-purple);
+}
+
+
+/* --- Mobile Stacking --- */
+@media (max-width: 480px) {
+  .aw-gate {
+      padding: 20px 20px 15px; /* Reduce padding on mobile */
+  }
+  .aw-gate__title {
+      font-size: clamp(20px, 5vw, 28px); /* Adjust mobile title size */
+      margin-bottom: 12px;
+  }
+  .aw-gate__desc {
+      margin-bottom: 20px;
+      max-width: 100%;
+  }
+  .aw-gate__buttons {
+    flex-direction: column; /* Stack buttons vertically */
+    gap: 10px;
+  }
+  .aw-gate__btn {
+    width: 100%; /* Make buttons full width */
+    margin: 0; /* Remove horizontal margins */
+    padding: 12px 20px; /* Adjust padding */
+    min-height: 46px;
+  }
+}
