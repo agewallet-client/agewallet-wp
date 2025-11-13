@@ -353,9 +353,38 @@
          // Ensure assets are loaded if maybe_enqueue_gate_assets didn't run or detect it early enough.
          if ( ! $this->assets_enqueued ) {
               $this->log_debug('[Gating Manager] Enqueuing assets from protected_content_shortcode_handler (fallback needed).');
+
+              // --- FIX: Manually register scripts/styles first, in case register_assets() hasn't run ---
+              // This logic is duplicated from register_assets() to make this fallback robust.
+
+              // Register Stylesheet
+              if ( ! wp_style_is( self::STYLE_HANDLE, 'registered' ) ) {
+                  $style_path = 'assets/css/gate.css';
+                  $style_ver = AGEWALLET_VERSION;
+                  if ( defined('WP_DEBUG') && WP_DEBUG ) {
+                      $file_path = AGEWALLET_PLUGIN_DIR . $style_path;
+                      if ( file_exists($file_path) ) { $style_ver = filemtime($file_path) ?: $style_ver; }
+                  }
+                  wp_register_style( self::STYLE_HANDLE, AGEWALLET_PLUGIN_URL . $style_path, array(), $style_ver, 'all');
+              }
+
+              // Register JavaScript
+              if ( ! wp_script_is( self::SCRIPT_HANDLE, 'registered' ) ) {
+                  $script_path = 'assets/js/gate.js';
+                  $script_ver = AGEWALLET_VERSION;
+                  if ( defined('WP_DEBUG') && WP_DEBUG ) {
+                      $file_path = AGEWALLET_PLUGIN_DIR . $script_path;
+                      if ( file_exists($file_path) ) { $script_ver = filemtime($file_path) ?: $script_ver; }
+                  }
+                  wp_register_script( self::SCRIPT_HANDLE, AGEWALLET_PLUGIN_URL . $script_path, array('jquery'), $script_ver, true);
+              }
+              // --- END REGISTRATION FIX ---
+
+              // Now enqueue them
               wp_enqueue_style(self::STYLE_HANDLE);
               wp_enqueue_script(self::SCRIPT_HANDLE);
 
+              // Check if data has been added (by this function or another)
               if (!wp_script_is(self::SCRIPT_HANDLE, 'data')) {
                  $script_data = array(
                      'cookieName' => self::VERIFIED_COOKIE_NAME,
@@ -363,8 +392,14 @@
                      'gateHtml'   => '',
                      'isOverlayActive' => false
                  );
-                 wp_localize_script(self::SCRIPT_HANDLE, 'agewallet_gate_data', $script_data);
-                 $this->log_debug('[GGating Manager] Localized minimal script data via shortcode fallback.');
+
+                 // --- FIX: Use wp_add_inline_script instead of wp_localize_script ---
+                 // This correctly adds the data object before the script tag, even when called late.
+                 $script_data_string = 'var agewallet_gate_data = ' . wp_json_encode($script_data) . ';';
+                 wp_add_inline_script( self::SCRIPT_HANDLE, $script_data_string, 'before' );
+                 // --- END INLINE SCRIPT FIX ---
+
+                 $this->log_debug('[GGating Manager] Injected minimal script data via shortcode fallback (wp_add_inline_script).');
               } else {
                   $this->log_debug('[Gating Manager] Script data already localized, skipping in shortcode fallback.');
               }

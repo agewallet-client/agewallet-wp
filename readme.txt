@@ -4,8 +4,8 @@ Tags: age verification, age gate, agewallet, content restriction, oidc, access c
 Requires at least: 5.8
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 1.0.0
-Version: 1.0.0
+Stable tag: 1.0.2
+Version: 1.0.2
 Author: AgeWallet LLC
 Author URI: https://agewallet.com
 License: GPLv2 or later
@@ -229,8 +229,12 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 = 1.0.0 =
 * Feature: Added an in-dashboard "Plugin Guide" page that displays the plugin's readme file.
 = 1.0.1 =
-* CSs and rDocumentation tweaks
+* CSS and rDocumentation tweaks
+= 1.0.12 =
+* Patched 2 bugs preventing shortcode from working properly in some environments
+
+
 == Upgrade Notice ==
 
-= 1.0.1 =
+= 1.0.2 =
 This is the updated public beta release. Enjoy!

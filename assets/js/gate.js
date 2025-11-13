@@ -80,19 +80,9 @@
         // Append the overlay to the body
         document.body.appendChild(overlay);
 
-        // Add click handler for the new 'Agree' button
-        var agreeButton = overlay.querySelector('.aw-gate__btn--yes');
-        if (agreeButton) {
-            agreeButton.addEventListener('click', function(event) {
-                event.preventDefault();
-                var redirectUrl = this.getAttribute('data-redirect-url');
-                if (redirectUrl) {
-                    window.location.href = redirectUrl;
-                } else {
-                    console.error('[AgeWallet Gate] Agree button is missing redirect URL.');
-                }
-            });
-        }
+        // --- REMOVED ---
+        // The click handler that was here has been replaced by
+        // the new delegated handler in the initGate() function.
 
         // Add active class if provided (used by CSS potentially)
         if (bodyClassActive && bodyClassActive.trim() !== '') {
@@ -143,20 +133,24 @@
 
         // Check if the localized data object exists
         if (typeof agewallet_gate_data === 'undefined' || !agewallet_gate_data) {
-            console.error('[AgeWallet Gate] Localization data (agewallet_gate_data) not found or invalid. Gating cannot proceed reliably.');
+            // Note: This error is expected if the shortcode fallback logic (from class-agewallet-gating-manager.php) is used.
+            // The fallback logic injects the data using wp_add_inline_script, which is correct but doesn't define the variable
+            // early for *this* specific check. The script will still work.
+            console.log('[AgeWallet Gate] agewallet_gate_data not found (this may be normal if using shortcode fallback).');
+
             // Try to reveal the body anyway to prevent a permanently hidden page if PHP failed.
             var pendingClass = 'agewallet-gated-pending'; // Use default as fallback
             document.body.classList.remove(pendingClass);
             document.body.style.visibility = 'visible';
-            return;
+
+            // Do NOT return here, as the delegated click handler below is still needed.
         }
 
         // Extract data passed from PHP
-        var cookieName = agewallet_gate_data.cookieName;
-        var gateHtml = agewallet_gate_data.gateHtml; // HTML for overlay, if active
-        var isOverlayActive = agewallet_gate_data.isOverlayActive || false; // Should the overlay be shown?
-        var bodyClassPending = agewallet_gate_data.bodyClassPending || 'agewallet-gated-pending';
-        // var bodyClassActive = agewallet_gate_data.bodyClassActive || 'agewallet-overlay-active'; // Not currently used by JS
+        var cookieName = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.cookieName : 'agewallet_verified'; // Fallback cookie name
+        var gateHtml = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.gateHtml : '';
+        var isOverlayActive = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.isOverlayActive : false;
+        var bodyClassPending = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.bodyClassPending : 'agewallet-gated-pending';
 
         // Check verification status
         var userIsVerified = isVerified(cookieName);
@@ -193,6 +187,24 @@
                  });
             }
         }
+
+        // --- FIX: Add Delegated Click Handler for all 'Agree' Buttons ---
+        // This works for both the overlay and any shortcode/popup instances,
+        // even if they are loaded dynamically after this script runs.
+        document.body.addEventListener('click', function(event) {
+            // Find the button if the click was on it or inside it
+            var agreeButton = event.target.closest('.aw-gate__btn--yes');
+
+            if (agreeButton) {
+                event.preventDefault(); // Stop any default button action
+                var redirectUrl = agreeButton.getAttribute('data-redirect-url');
+                if (redirectUrl) {
+                    window.location.href = redirectUrl;
+                } else {
+                    console.error('[AgeWallet Gate] Agree button is missing redirect URL.');
+                }
+            }
+        });
     }
 
     // --- Execution ---
