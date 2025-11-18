@@ -4,6 +4,7 @@
  * Checks for the verification cookie. Handles:
  * 1. Displaying a full-screen overlay if automatic gating is active and user is unverified.
  * 2. Showing/hiding content wrapped in the [agewallet_protected] shortcode based on verification status.
+ * 3. (New) Strict Mode: Redirects unverified users or fetches/injects secure content for verified users.
  *
  * @since 0.1.0
  */
@@ -16,6 +17,10 @@
     // - gateHtml: HTML for the overlay gate (string, may be empty)
     // - isOverlayActive: Flag indicating if automatic overlay gating is triggered (boolean)
     // - bodyClassPending: CSS class added to body initially (string)
+    // - isStrictMode: (Bool) If true, use Redirect/API logic.
+    // - apiEndpoint: (String) URL to fetch content from.
+    // - gateUrl: (String) URL to redirect unverified users to.
+    // - redirectUrl: (String) Current URL to return to.
 
     /**
      * Function to check if the verification cookie exists.
@@ -80,10 +85,6 @@
         // Append the overlay to the body
         document.body.appendChild(overlay);
 
-        // --- REMOVED ---
-        // The click handler that was here has been replaced by
-        // the new delegated handler in the initGate() function.
-
         // Add active class if provided (used by CSS potentially)
         if (bodyClassActive && bodyClassActive.trim() !== '') {
             document.body.classList.add(bodyClassActive);
@@ -91,38 +92,73 @@
     }
 
     /**
-     * --- Handles showing/hiding protected content blocks based on verification status ---
-     * Finds elements matching '.agewallet-protected-wrapper' and adjusts display
-     * of '.agewallet-protected-content' and '.agewallet-protected-placeholder' children.
-     * @param {boolean} userIsVerified True if the verification cookie is present.
+     * Handles showing/hiding protected content blocks based on verification status.
      */
     function handleProtectedBlocks(userIsVerified) {
-
         var wrappers = document.querySelectorAll('.agewallet-protected-wrapper');
-
-        if (wrappers.length === 0) {
-            return; // No blocks to process
-        }
+        if (wrappers.length === 0) return;
 
         wrappers.forEach(function(wrapper) {
             var content = wrapper.querySelector('.agewallet-protected-content');
             var placeholder = wrapper.querySelector('.agewallet-protected-placeholder');
 
-            if (!content || !placeholder) {
-                console.warn('[AgeWallet Gate] Protected block wrapper is missing content or placeholder element.', wrapper);
-                return; // Skip this block if structure is wrong
-            }
+            if (!content || !placeholder) return;
 
             if (userIsVerified) {
-                // User IS verified: Show content, hide placeholder
                 content.style.display = 'block';
                 placeholder.style.display = 'none';
             } else {
-                // User is NOT verified: Hide content, show placeholder (should be default state)
                 content.style.display = 'none';
                 placeholder.style.display = 'block';
             }
         });
+    }
+
+    /**
+     * STRICT MODE: Fetches secure content via API and injects it.
+     */
+    function fetchAndInjectContent(apiEndpoint) {
+        if (!apiEndpoint) {
+            console.error('[AgeWallet Strict] API Endpoint missing.');
+            return;
+        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', apiEndpoint, true);
+        xhr.withCredentials = true; // Send cookies with request
+
+        xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.success && response.html) {
+                        // The "Hard" Load: Replace the entire document with the fetched HTML.
+                        // This triggers a full parse/execute of the new page content.
+                        document.open();
+                        document.write(response.html);
+                        document.close();
+                    } else {
+                        console.error('[AgeWallet Strict] API returned error or empty HTML.', response);
+                        document.body.innerHTML = '<p>Error loading content: ' + (response.message || 'Unknown error') + '</p>';
+                    }
+                } catch (e) {
+                    console.error('[AgeWallet Strict] JSON Parse Error', e);
+                }
+            } else {
+                console.error('[AgeWallet Strict] HTTP Error', xhr.statusText);
+                if (xhr.status === 403) {
+                     // Cookie might have expired mid-session? Redirect to gate.
+                     var gateUrl = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.gateUrl : '/';
+                     if(gateUrl) window.location.href = gateUrl;
+                }
+            }
+        };
+
+        xhr.onerror = function() {
+            console.error('[AgeWallet Strict] Network Error');
+        };
+
+        xhr.send();
     }
 
 
@@ -133,52 +169,73 @@
 
         // Check if the localized data object exists
         if (typeof agewallet_gate_data === 'undefined' || !agewallet_gate_data) {
-            // Note: This error is expected if the shortcode fallback logic (from class-agewallet-gating-manager.php) is used.
-            // The fallback logic injects the data using wp_add_inline_script, which is correct but doesn't define the variable
-            // early for *this* specific check. The script will still work.
             console.log('[AgeWallet Gate] agewallet_gate_data not found (this may be normal if using shortcode fallback).');
-
-            // Try to reveal the body anyway to prevent a permanently hidden page if PHP failed.
-            var pendingClass = 'agewallet-gated-pending'; // Use default as fallback
+            var pendingClass = 'agewallet-gated-pending';
             document.body.classList.remove(pendingClass);
             document.body.style.visibility = 'visible';
-
-            // Do NOT return here, as the delegated click handler below is still needed.
+            // Continue to enable click handlers if possible
         }
 
         // Extract data passed from PHP
-        var cookieName = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.cookieName : 'agewallet_verified'; // Fallback cookie name
-        var gateHtml = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.gateHtml : '';
-        var isOverlayActive = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.isOverlayActive : false;
-        var bodyClassPending = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.bodyClassPending : 'agewallet-gated-pending';
+        var data = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data : {};
+        var cookieName = data.cookieName || 'agewallet_verified';
+        var gateHtml = data.gateHtml || '';
+        var isOverlayActive = data.isOverlayActive || false;
+        var bodyClassPending = data.bodyClassPending || 'agewallet-gated-pending';
+
+        // Strict Mode Data
+        var isStrictMode = data.isStrictMode || false;
+        var apiEndpoint  = data.apiEndpoint || '';
+        var gateUrl      = data.gateUrl || '';
+        var redirectUrl  = data.redirectUrl || window.location.href;
 
         // Check verification status
         var userIsVerified = isVerified(cookieName);
 
-        // --- Handle Automatic Overlay ---
+        // --- STRICT MODE LOGIC ---
+        if (isStrictMode) {
+            if (userIsVerified) {
+                // Verified: Fetch content via API and Inject
+                fetchAndInjectContent(apiEndpoint);
+                // Note: We do NOT remove bodyClassPending here because the document.write
+                // will wipe the entire page (including the body class) and replace it.
+            } else {
+                // Not Verified: Redirect to Gate Page
+                if (gateUrl) {
+                    // Construct redirect URL with return path
+                    var target = gateUrl;
+                    // Check if gateUrl already has query params
+                    var separator = target.indexOf('?') !== -1 ? '&' : '?';
+                    target += separator + 'redirect_to=' + encodeURIComponent(redirectUrl);
+
+                    // Perform Redirect
+                    window.location.replace(target);
+                } else {
+                    console.error('[AgeWallet Strict] Configuration Error: Age Gate Page URL not set.');
+                    document.body.innerHTML = '<p style="padding:20px;text-align:center;">Configuration Error: Age Gate Page not selected in settings.</p>';
+                }
+            }
+            return; // Stop execution, Strict Mode takes over completely.
+        }
+        // --- END STRICT MODE ---
+
+        // --- STANDARD MODE LOGIC (Overlay) ---
         if (isOverlayActive) {
             if (userIsVerified) {
-                // Verified: Remove the pending/hiding class and ensure body is visible
                 document.body.classList.remove(bodyClassPending);
-                document.body.style.visibility = 'visible'; // Ensure visibility
+                document.body.style.visibility = 'visible';
             } else {
-                // Not verified: Show the overlay
-                showOverlay(gateHtml); // bodyClassActive is handled by CSS via bodyClassPending removal
-                // Remove the pending class now that the overlay is active
+                showOverlay(gateHtml);
                 document.body.classList.remove(bodyClassPending);
-                document.body.style.visibility = 'visible'; // Ensure visibility (overlay will cover it)
+                document.body.style.visibility = 'visible';
             }
         } else {
-             // No automatic overlay required, ensure content is visible
              document.body.classList.remove(bodyClassPending);
              document.body.style.visibility = 'visible';
         }
 
-        // --- Handle Protected Content Blocks ---
         handleProtectedBlocks(userIsVerified);
 
-        // --- Handle Hiding [agewallet_button] if verified ---
-        // TODO: Implement logic to find '.agewallet-shortcode-wrapper' and hide if userIsVerified is true
         if (userIsVerified) {
             var buttonWrappers = document.querySelectorAll('.agewallet-shortcode-wrapper');
             if (buttonWrappers.length > 0) {
@@ -188,18 +245,14 @@
             }
         }
 
-        // --- FIX: Add Delegated Click Handler for all 'Agree' Buttons ---
-        // This works for both the overlay and any shortcode/popup instances,
-        // even if they are loaded dynamically after this script runs.
+        // Delegated Click Handler
         document.body.addEventListener('click', function(event) {
-            // Find the button if the click was on it or inside it
             var agreeButton = event.target.closest('.aw-gate__btn--yes');
-
             if (agreeButton) {
-                event.preventDefault(); // Stop any default button action
-                var redirectUrl = agreeButton.getAttribute('data-redirect-url');
-                if (redirectUrl) {
-                    window.location.href = redirectUrl;
+                event.preventDefault();
+                var rUrl = agreeButton.getAttribute('data-redirect-url');
+                if (rUrl) {
+                    window.location.href = rUrl;
                 } else {
                     console.error('[AgeWallet Gate] Agree button is missing redirect URL.');
                 }
@@ -208,12 +261,9 @@
     }
 
     // --- Execution ---
-    // Wait for the DOM to be fully loaded before executing the script
     if (document.readyState === 'loading') {
-        // Loading hasn't finished yet
         document.addEventListener('DOMContentLoaded', initGate);
     } else {
-        // `DOMContentLoaded` has already fired
         initGate();
     }
 
