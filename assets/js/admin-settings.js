@@ -1,7 +1,8 @@
 /**
  * JavaScript for AgeWallet OIDC Admin Settings Page.
  *
- * Handles media uploader interactions and conditional display of fields.
+ * Handles media uploader interactions, conditional display of fields,
+ * and manual cache purging.
  * Relies on localized data object 'agewalletAdminData'.
  *
  * @since 0.1.0
@@ -11,7 +12,7 @@
 
     $(function() { // Equivalent to $(document).ready()
 
-        // --- Media Uploader Logic ---
+        // --- 1. Media Uploader Logic ---
         var mediaFrame;
         var $logoPreview = $('#' + agewalletAdminData.logoPreviewId);
         var $logoIdInput = $('#' + agewalletAdminData.logoInputId);
@@ -69,31 +70,71 @@
         });
 
 
-        // --- Conditional Display for Blocked Paths Textarea ---
-        // Find the radio buttons for block mode using the name attribute passed from PHP
+        // --- 2. Conditional Display for Blocked Paths Textarea ---
         var $blockModeRadios = $('input[type="radio"][name="' + agewalletAdminData.blockModeOptionName + '"]');
-        // Find the wrapper div for the textarea using the ID passed from PHP
         var $pathsWrapper = $('#' + agewalletAdminData.blockedPathsWrapperId);
 
-        // Function to toggle the visibility of the textarea wrapper
         function toggleBlockedPathsVisibility() {
-            // Get the value of the currently checked radio button
             var selectedMode = $blockModeRadios.filter(':checked').val();
+            // FIX: Target the closest table row (tr) to hide both the label (th) and the input (td)
+            var $row = $pathsWrapper.closest('tr');
 
-            // Check if the selected mode is 'specific'
             if (selectedMode === 'specific') {
-                $pathsWrapper.slideDown(200); // Show with a smooth animation
+                // Use show() instead of slideDown() for table rows to avoid layout glitches
+                $row.show();
             } else {
-                $pathsWrapper.slideUp(200); // Hide with a smooth animation
+                $row.hide();
             }
         }
 
-        // Run the toggle function immediately on page load to set the initial state
+        // Run immediately and on change
         toggleBlockedPathsVisibility();
-
-        // Add an event listener to run the toggle function whenever a radio button's state changes
         $blockModeRadios.on('change', toggleBlockedPathsVisibility);
+
+
+        // --- 3. Manual Cache Purge Logic ---
+        var $purgeBtn = $('#agewallet-purge-cache');
+        var $purgeSpinner = $('#agewallet-purge-spinner');
+        var $purgeMsg = $('#agewallet-purge-message');
+
+        if ($purgeBtn.length) {
+            $purgeBtn.on('click', function(e) {
+                e.preventDefault();
+
+                if (!confirm('Are you sure you want to delete ALL cached HTML files? This action cannot be undone.')) {
+                    return;
+                }
+
+                $purgeBtn.prop('disabled', true);
+                $purgeSpinner.addClass('is-active');
+                $purgeMsg.text('').removeClass('notice-error notice-success').css('color', '');
+
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'agewallet_purge_cache',
+                        // Assuming standard admin ajax security if nonce not explicitly passed
+                    },
+                    success: function(response) {
+                        $purgeSpinner.removeClass('is-active');
+                        $purgeBtn.prop('disabled', false);
+
+                        if (response.success) {
+                            $purgeMsg.text(response.data).css('color', '#00a32a');
+                        } else {
+                            $purgeMsg.text('Error: ' + response.data).css('color', '#d63638');
+                        }
+                    },
+                    error: function() {
+                        $purgeSpinner.removeClass('is-active');
+                        $purgeBtn.prop('disabled', false);
+                        $purgeMsg.text('Network Error. Please try again.').css('color', '#d63638');
+                    }
+                });
+            });
+        }
 
     }); // End $(document).ready()
 
-})(jQuery); // Pass jQuery to the closure
+})(jQuery);

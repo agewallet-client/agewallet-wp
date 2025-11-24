@@ -4,7 +4,7 @@
  * Checks for the verification cookie. Handles:
  * 1. Displaying a full-screen overlay if automatic gating is active and user is unverified.
  * 2. Showing/hiding content wrapped in the [agewallet_protected] shortcode based on verification status.
- * 3. (New) Strict Mode: Redirects unverified users or fetches/injects secure content for verified users.
+ * 3. (New) Strict Mode: Fetches secure content via API (verified) or reveals Gate UI (unverified).
  *
  * @since 0.1.0
  */
@@ -17,10 +17,10 @@
     // - gateHtml: HTML for the overlay gate (string, may be empty)
     // - isOverlayActive: Flag indicating if automatic overlay gating is triggered (boolean)
     // - bodyClassPending: CSS class added to body initially (string)
-    // - isStrictMode: (Bool) If true, use Redirect/API logic.
+    // - isStrictMode: (Bool) If true, use Skeleton/API logic.
     // - apiEndpoint: (String) URL to fetch content from.
-    // - gateUrl: (String) URL to redirect unverified users to.
-    // - redirectUrl: (String) Current URL to return to.
+    // - launchUrl: (String) URL endpoint to start the verification flow (/agewallet/launch/).
+    // - redirectUrl: (String) Fallback return URL (from PHP).
 
     /**
      * Function to check if the verification cookie exists.
@@ -51,29 +51,22 @@
     }
 
     /**
-     * Creates and injects the overlay into the DOM.
+     * Creates and injects the overlay into the DOM (Standard Mode).
      * @param {string} gateHtml The HTML markup for the gate prompt.
      * @param {string} bodyClassActive CSS class to add to body when overlay is active.
      */
     function showOverlay(gateHtml, bodyClassActive) {
         if (!gateHtml) {
             console.error('[AgeWallet Gate] Gate HTML is missing. Cannot display overlay.');
-            // Fallback: Display a simple message in the body
-             try { // Wrap in try/catch in case body modification fails
-                 document.body.innerHTML = '<p style="padding:2em; text-align:center; font-family: sans-serif; color: red;">Age verification is required, but the gate prompt could not be loaded.</p>';
-             } catch(e) { console.error("Failed to show fallback message.", e); }
             return;
         }
 
         // Create the overlay container div
         var overlay = document.createElement('div');
         overlay.id = 'agewallet-gate-overlay';
-        overlay.className = 'aw-gate__overlay'; // Basic class for positioning/styling from CSS
-        // Inline styles serve as fallbacks if CSS doesn't load, but prefer CSS rules.
-        // Styles moved mostly to CSS file for better maintenance. Z-index is critical here.
+        overlay.className = 'aw-gate__overlay';
         overlay.style.zIndex = '999999';
 
-        // Set the inner HTML to the gate markup provided by PHP
         try {
              overlay.innerHTML = gateHtml;
         } catch(e) {
@@ -81,11 +74,8 @@
              overlay.innerHTML = '<p style="color:red;">Error loading gate content.</p>';
         }
 
-
-        // Append the overlay to the body
         document.body.appendChild(overlay);
 
-        // Add active class if provided (used by CSS potentially)
         if (bodyClassActive && bodyClassActive.trim() !== '') {
             document.body.classList.add(bodyClassActive);
         }
@@ -124,7 +114,8 @@
         }
 
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', apiEndpoint, true);
+        // CHANGED: Switched from GET to POST to prevent server-side caching
+        xhr.open('POST', apiEndpoint, true);
         xhr.withCredentials = true; // Send cookies with request
 
         xhr.onload = function() {
@@ -133,7 +124,6 @@
                     var response = JSON.parse(xhr.responseText);
                     if (response.success && response.html) {
                         // The "Hard" Load: Replace the entire document with the fetched HTML.
-                        // This triggers a full parse/execute of the new page content.
                         document.open();
                         document.write(response.html);
                         document.close();
@@ -146,11 +136,6 @@
                 }
             } else {
                 console.error('[AgeWallet Strict] HTTP Error', xhr.statusText);
-                if (xhr.status === 403) {
-                     // Cookie might have expired mid-session? Redirect to gate.
-                     var gateUrl = (typeof agewallet_gate_data !== 'undefined') ? agewallet_gate_data.gateUrl : '/';
-                     if(gateUrl) window.location.href = gateUrl;
-                }
             }
         };
 
@@ -186,40 +171,68 @@
         // Strict Mode Data
         var isStrictMode = data.isStrictMode || false;
         var apiEndpoint  = data.apiEndpoint || '';
-        var gateUrl      = data.gateUrl || '';
-        var redirectUrl  = data.redirectUrl || window.location.href;
+        var launchUrl    = data.launchUrl || '';
 
         // Check verification status
         var userIsVerified = isVerified(cookieName);
 
-        // --- STRICT MODE LOGIC ---
+        // --- 1. REGISTER CLICKS FIRST (Safety) ---
+        // Delegated Click Handler for "I Agree" buttons (works for both Overlay and Skeleton)
+        document.body.addEventListener('click', function(event) {
+            var agreeButton = event.target.closest('.aw-gate__btn--yes');
+            if (agreeButton) {
+                event.preventDefault();
+                var rUrl = agreeButton.getAttribute('data-redirect-url');
+                if (rUrl) {
+                    // CHANGED: Use a Form POST to navigate, preventing caching of the launch request
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = rUrl;
+                    form.style.display = 'none';
+                    document.body.appendChild(form);
+                    form.submit();
+                } else {
+                    console.error('[AgeWallet Gate] Agree button is missing redirect URL.');
+                }
+            }
+        });
+
+        // --- 2. STRICT MODE LOGIC ---
         if (isStrictMode) {
             if (userIsVerified) {
                 // Verified: Fetch content via API and Inject
                 fetchAndInjectContent(apiEndpoint);
-                // Note: We do NOT remove bodyClassPending here because the document.write
-                // will wipe the entire page (including the body class) and replace it.
             } else {
-                // Not Verified: Redirect to Gate Page
-                if (gateUrl) {
-                    // Construct redirect URL with return path
-                    var target = gateUrl;
-                    // Check if gateUrl already has query params
-                    var separator = target.indexOf('?') !== -1 ? '&' : '?';
-                    target += separator + 'redirect_to=' + encodeURIComponent(redirectUrl);
+                // Not Verified: Toggle from Spinner to Gate UI
+                var spinner = document.getElementById('aw-gate-spinner');
+                var gateUI = document.getElementById('aw-gate-ui');
 
-                    // Perform Redirect
-                    window.location.replace(target);
+                // Hide Spinner
+                if (spinner) {
+                    spinner.style.display = 'none';
+                }
+
+                // Show Gate
+                if (gateUI) {
+                    gateUI.style.display = 'block';
+
+                    // Dynamic Redirect: Update the button to return to *this* page
+                    var agreeBtn = gateUI.querySelector('.aw-gate__btn--yes');
+                    if (agreeBtn && launchUrl) {
+                        var currentUrl = window.location.href;
+                        var separator = launchUrl.indexOf('?') !== -1 ? '&' : '?';
+                        var finalUrl = launchUrl + separator + 'redirect_to=' + encodeURIComponent(currentUrl);
+                        agreeBtn.setAttribute('data-redirect-url', finalUrl);
+                    }
                 } else {
-                    console.error('[AgeWallet Strict] Configuration Error: Age Gate Page URL not set.');
-                    document.body.innerHTML = '<p style="padding:20px;text-align:center;">Configuration Error: Age Gate Page not selected in settings.</p>';
+                    // Fallback if template is missing UI parts
+                    console.error('[AgeWallet Strict] Critical: #aw-gate-ui container missing from template.');
                 }
             }
-            return; // Stop execution, Strict Mode takes over completely.
+            return; // Stop execution of Standard Mode logic
         }
-        // --- END STRICT MODE ---
 
-        // --- STANDARD MODE LOGIC (Overlay) ---
+        // --- 3. STANDARD MODE LOGIC (Overlay) ---
         if (isOverlayActive) {
             if (userIsVerified) {
                 document.body.classList.remove(bodyClassPending);
@@ -234,8 +247,10 @@
              document.body.style.visibility = 'visible';
         }
 
+        // Handle Shortcode Content
         handleProtectedBlocks(userIsVerified);
 
+        // Hide button wrappers if verified
         if (userIsVerified) {
             var buttonWrappers = document.querySelectorAll('.agewallet-shortcode-wrapper');
             if (buttonWrappers.length > 0) {
@@ -244,20 +259,6 @@
                  });
             }
         }
-
-        // Delegated Click Handler
-        document.body.addEventListener('click', function(event) {
-            var agreeButton = event.target.closest('.aw-gate__btn--yes');
-            if (agreeButton) {
-                event.preventDefault();
-                var rUrl = agreeButton.getAttribute('data-redirect-url');
-                if (rUrl) {
-                    window.location.href = rUrl;
-                } else {
-                    console.error('[AgeWallet Gate] Agree button is missing redirect URL.');
-                }
-            }
-        });
     }
 
     // --- Execution ---

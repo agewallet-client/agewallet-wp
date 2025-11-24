@@ -10,7 +10,7 @@
  */
 
 // Prevent direct script access.
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 class AgeWallet_API {
 
@@ -21,7 +21,7 @@ class AgeWallet_API {
 	private static $instance = null;
 
 	/**
-	 * The absolute path to the cache directory.
+	 * The absolute path to the cache base directory.
 	 * @var string
 	 */
 	private $cache_dir = '';
@@ -48,13 +48,21 @@ class AgeWallet_API {
 	 */
 	private function __construct() {
 		// Define cache directory: /wp-content/uploads/agewallet-cache/
-		$upload_dir      = wp_upload_dir();
-		$this->cache_dir = trailingslashit( $upload_dir['basedir'] ) . 'agewallet-cache/';
+		$upload_dir = wp_upload_dir();
+		$base_dir   = trailingslashit( $upload_dir['basedir'] ) . 'agewallet-cache/';
 
-		// Retrieve or generate the loopback bypass secret.
+		/**
+		 * Filter: agewallet_cache_directory
+		 * Allows developers to move the HTML cache to a custom location.
+		 */
+		$this->cache_dir = trailingslashit( apply_filters( 'agewallet_cache_directory', $base_dir ) );
+
+		// Retrieve the loopback bypass secret.
 		$this->bypass_secret = get_option( 'agewallet_loopback_secret' );
-		if ( empty( $this->bypass_secret ) ) {
-			$this->bypass_secret = wp_generate_password( 64, true, true );
+
+		// Self-Healing: Check if secret is missing or invalid.
+		if ( empty( $this->bypass_secret ) || preg_match( '/[^a-zA-Z0-9]/', $this->bypass_secret ) ) {
+			$this->bypass_secret = wp_generate_password( 64, false );
 			update_option( 'agewallet_loopback_secret', $this->bypass_secret );
 		}
 
@@ -65,10 +73,11 @@ class AgeWallet_API {
 		add_action( 'save_post', array( $this, 'clear_post_cache' ), 10, 3 );
 		add_action( 'wp_update_nav_menu', array( $this, 'clear_all_cache' ) );
 		add_action( 'switch_theme', array( $this, 'clear_all_cache' ) );
-		// Hook for Customizer/Settings changes could be added here if needed.
 
-		// Loopback Request Handling (runs early to set context).
+		// Loopback Request Handling.
 		add_action( 'template_redirect', array( $this, 'handle_loopback_request' ), 0 );
+		// Inject Cache Type Header during loopback.
+		add_action( 'wp_headers', array( $this, 'add_cache_type_headers' ) );
 	}
 
 	/**
@@ -77,9 +86,10 @@ class AgeWallet_API {
 	public function register_routes() {
 		register_rest_route(
 			'agewallet/v1',
-			'/content/(?P<id>\d+)',
+			'/content',
 			array(
-				'methods'             => 'GET',
+				// Accept POST methods to bypass aggressive GET caching (Varnish/WP Engine).
+				'methods'             => array( 'GET', 'POST' ),
 				'callback'            => array( $this, 'get_content' ),
 				// We handle permission checks manually to inspect cookies.
 				'permission_callback' => '__return_true',
@@ -94,8 +104,6 @@ class AgeWallet_API {
 	 * @return WP_REST_Response The JSON response containing HTML.
 	 */
 	public function get_content( $request ) {
-		$post_id = (int) $request['id'];
-
 		// 1. Security Check: Verify AgeWallet Cookie.
 		if ( ! $this->is_user_verified() ) {
 			return new WP_REST_Response(
@@ -108,12 +116,23 @@ class AgeWallet_API {
 			);
 		}
 
-		// 2. Check File Cache (Hit).
-		$cached_html = $this->read_cache( $post_id );
-		if ( $cached_html ) {
-			// Allow developers to modify cached content before sending (e.g., dynamic nonces).
-			$cached_html = apply_filters( 'agewallet_api_content_response', $cached_html, $post_id, 'cache' );
+		// 2. Determine Target.
+		// Support params in both Body (POST) and Query (GET).
+		$target_url = $request->get_param( 'url' );
+		$post_id    = (int) $request->get_param( 'id' );
 
+		if ( empty( $target_url ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'missing_url' ), 400 );
+		}
+
+		// Generate MD5 Hash of the URL for the filename.
+		$url_hash = md5( $target_url );
+
+		// 3. Check File Cache (Hit).
+		$cached_html = $this->read_cache( $post_id, $url_hash );
+
+		if ( $cached_html ) {
+			$cached_html = apply_filters( 'agewallet_api_content_response', $cached_html, $post_id, 'cache' );
 			return new WP_REST_Response(
 				array(
 					'success' => true,
@@ -124,15 +143,13 @@ class AgeWallet_API {
 			);
 		}
 
-		// 3. Cache Miss: Build Cache via Loopback Request.
-		$html = $this->build_cache( $post_id );
+		// 4. Cache Miss: Build Cache via Loopback.
+		$html = $this->build_cache( $target_url, $post_id, $url_hash );
 
 		if ( is_wp_error( $html ) ) {
-			// Log the specific error for debugging.
 			if ( class_exists( 'AgeWallet_Helpers' ) ) {
 				AgeWallet_Helpers::instance()->log( 'API Build Cache Failed', array( 'error' => $html->get_error_message() ) );
 			}
-
 			return new WP_REST_Response(
 				array(
 					'success' => false,
@@ -143,10 +160,8 @@ class AgeWallet_API {
 			);
 		}
 
-		// Allow developers to modify fresh content before sending.
 		$html = apply_filters( 'agewallet_api_content_response', $html, $post_id, 'fresh' );
 
-		// 4. Return Fresh Content.
 		return new WP_REST_Response(
 			array(
 				'success' => true,
@@ -159,11 +174,8 @@ class AgeWallet_API {
 
 	/**
 	 * Securely checks if the user has the verification cookie.
-	 *
-	 * @return bool True if verified, false otherwise.
 	 */
 	private function is_user_verified() {
-		// Use constant if available (best practice), fallback to string.
 		$cookie_name = defined( 'AgeWallet_Gating_Manager::VERIFIED_COOKIE_NAME' )
 			? AgeWallet_Gating_Manager::VERIFIED_COOKIE_NAME
 			: 'agewallet_verified';
@@ -176,69 +188,44 @@ class AgeWallet_API {
 
 	/**
 	 * Reads HTML content from the file system.
-	 *
-	 * @param int $post_id The ID of the post.
-	 * @return string|false The HTML content or false if not found.
+	 * Looks in /singular/ or /archives/ based on the ID provided by Gatekeeper.
 	 */
-	private function read_cache( $post_id ) {
-		$file_path = $this->cache_dir . 'page-' . $post_id . '.html';
-
-		if ( file_exists( $file_path ) ) {
-			// Optional: Check for TTL (Time To Live) here using filemtime if desired in future.
-			return file_get_contents( $file_path );
+	private function read_cache( $post_id, $url_hash ) {
+		$path = $this->get_cache_path( $post_id, $url_hash );
+		if ( file_exists( $path ) ) {
+			return file_get_contents( $path );
 		}
 		return false;
 	}
 
 	/**
-	 * Writes HTML content to the file system.
-	 * Handles directory creation and index.php protection.
-	 *
-	 * @param int    $post_id The ID of the post.
-	 * @param string $html    The full HTML content.
-	 * @return bool True on success, false on failure.
+	 * Helper to determine file path.
+	 * If ID > 0, it's singular. If 0, it's an archive.
 	 */
-	private function write_cache( $post_id, $html ) {
-		// Create directory if it doesn't exist.
-		if ( ! is_dir( $this->cache_dir ) ) {
-			if ( ! wp_mkdir_p( $this->cache_dir ) ) {
-				return false;
-			}
-			// Add silence is golden file for security.
-			file_put_contents( $this->cache_dir . 'index.php', '<?php // Silence is golden.' );
+	private function get_cache_path( $post_id, $url_hash ) {
+		if ( $post_id > 0 ) {
+			return $this->cache_dir . 'singular/post-' . $post_id . '-' . $url_hash . '.html';
+		} else {
+			return $this->cache_dir . 'archives/' . $url_hash . '.html';
 		}
-
-		$file_path = $this->cache_dir . 'page-' . $post_id . '.html';
-		return (bool) file_put_contents( $file_path, $html );
 	}
 
 	/**
-	 * Performs a loopback HTTP request to the site itself to capture the full page HTML.
-	 *
-	 * @param int $post_id The ID of the post to fetch.
-	 * @return string|WP_Error The HTML content or error.
+	 * Performs a loopback HTTP request to capture HTML.
 	 */
-	private function build_cache( $post_id ) {
-		$permalink = get_permalink( $post_id );
-		if ( ! $permalink ) {
-			return new WP_Error( 'invalid_id', 'Invalid Post ID or Permalink not found.' );
-		}
-
+	private function build_cache( $target_url, $post_id, $url_hash ) {
 		// Add the secret bypass key to the URL.
-		// This tells handle_loopback_request() to allow full rendering.
-		$url = add_query_arg( 'aw_cache_bypass', $this->bypass_secret, $permalink );
+		$url = add_query_arg( 'aw_cache_bypass', $this->bypass_secret, $target_url );
 
-		// Prepare request arguments.
+		$url = apply_filters( 'agewallet_loopback_url', $url, $post_id );
+
 		$args = array(
 			'timeout'   => 15,
-			'sslverify' => apply_filters( 'https_local_ssl_verify', false ), // Often needed for local loopbacks.
-			'cookies'   => array(), // We strictly want the "public" version of the page.
+			'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+			'cookies'   => array(), // Request as a public, unauthenticated user
 		);
-
-		// Hook: Allow developers to modify loopback args (e.g., to pass specific cookies or headers).
 		$args = apply_filters( 'agewallet_loopback_request_args', $args, $post_id );
 
-		// Perform the request.
 		$response = wp_remote_get( $url, $args );
 
 		if ( is_wp_error( $response ) ) {
@@ -247,93 +234,128 @@ class AgeWallet_API {
 
 		$response_code = wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $response_code ) {
-			return new WP_Error( 'http_error', 'Loopback request returned status ' . $response_code );
+			return new WP_Error( 'http_error', 'Loopback returned status ' . $response_code );
 		}
 
 		$html = wp_remote_retrieve_body( $response );
 		if ( empty( $html ) ) {
-			return new WP_Error( 'empty_response', 'Empty response body from loopback request.' );
+			return new WP_Error( 'empty_response', 'Empty response body.' );
 		}
 
-		// Save the captured HTML to the cache.
-		$this->write_cache( $post_id, $html );
+		// Determine cache type from Header response (set by add_cache_type_headers)
+		// Default to provided ID logic if header missing.
+		$type_header = wp_remote_retrieve_header( $response, 'X-AW-Cache-Type' );
+
+		// Logic: If Loopback says "archive", force ID to 0 to save in /archives/ folder.
+		if ( 'archive' === $type_header ) {
+			$post_id = 0;
+		}
+
+		$this->write_cache( $post_id, $url_hash, $html );
 
 		return $html;
 	}
 
 	/**
-	 * Intercepts the page load early to detect a valid Loopback Request.
-	 * If the secret key matches, it sets a constant.
-	 *
-	 * The Gating Manager will check this constant. If defined, it will NOT
-	 * serve the Skeleton, allowing the full theme/Elementor to render so we can capture it.
-	 *
-	 * Hooked to: template_redirect (priority 0)
+	 * Writes HTML content to the file system.
+	 */
+	private function write_cache( $post_id, $url_hash, $html ) {
+		$sub_dir  = ( $post_id > 0 ) ? 'singular/' : 'archives/';
+		$full_dir = $this->cache_dir . $sub_dir;
+
+		if ( ! is_dir( $full_dir ) ) {
+			if ( ! wp_mkdir_p( $full_dir ) ) {
+				return false;
+			}
+			// Security silence file
+			file_put_contents( $full_dir . 'index.php', '<?php // Silence.' );
+		}
+
+		$file_path = $this->get_cache_path( $post_id, $url_hash );
+		return (bool) file_put_contents( $file_path, $html );
+	}
+
+	/**
+	 * Intercepts Loopback to set constants.
 	 */
 	public function handle_loopback_request() {
-		// Verify the nonce/secret in the URL.
-		if ( isset( $_GET['aw_cache_bypass'] ) && hash_equals( $this->bypass_secret, $_GET['aw_cache_bypass'] ) ) {
-			// Define the flag constant.
+		$param_secret = isset( $_GET['aw_cache_bypass'] ) ? stripslashes( $_GET['aw_cache_bypass'] ) : '';
+
+		if ( isset( $_GET['aw_cache_bypass'] ) && hash_equals( $this->bypass_secret, $param_secret ) ) {
 			if ( ! defined( 'AGEWALLET_CACHE_BUILDING' ) ) {
 				define( 'AGEWALLET_CACHE_BUILDING', true );
 			}
-			// We do not exit here. We let WordPress continue to load the template.
+			// Disable optimization plugins...
+			if ( ! defined( 'DONOTROCKETOPTIMIZE' ) ) define( 'DONOTROCKETOPTIMIZE', true );
+			if ( ! defined( 'DONOTMINIFY' ) ) define( 'DONOTMINIFY', true );
 		}
 	}
 
 	/**
-	 * Deletes the cache file for a specific post when it is updated.
-	 *
-	 * @param int     $post_id Post ID.
-	 * @param WP_Post $post    Post object.
-	 * @param bool    $update  Whether this is an existing post being updated.
+	 * Adds a header to the loopback response indicating page type.
+	 * Crucial for distinguishing Archives vs Singular during cache build.
+	 */
+	public function add_cache_type_headers( $headers ) {
+		if ( defined( 'AGEWALLET_CACHE_BUILDING' ) && AGEWALLET_CACHE_BUILDING ) {
+			if ( is_archive() || is_home() || is_search() ) {
+				$headers['X-AW-Cache-Type'] = 'archive';
+			} elseif ( is_singular() ) {
+				$headers['X-AW-Cache-Type'] = 'singular';
+			}
+		}
+		return $headers;
+	}
+
+	/**
+	 * Invalidation Logic.
 	 */
 	public function clear_post_cache( $post_id, $post, $update ) {
-		// Avoid clearing on autosaves or revisions.
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return;
-		}
-		if ( 'revision' === $post->post_type ) {
-			return;
-		}
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+		if ( 'revision' === $post->post_type ) return;
 
-		$file_path = $this->cache_dir . 'page-' . $post_id . '.html';
-		if ( file_exists( $file_path ) ) {
-			unlink( $file_path );
-		}
-	}
-
-	/**
-	 * Clears the entire cache directory.
-	 * Used for global changes (Menu updates, Theme switches).
-	 */
-	public function clear_all_cache() {
-		if ( ! is_dir( $this->cache_dir ) ) {
-			return;
-		}
-
-		$files = glob( $this->cache_dir . '*.html' );
+		// 1. Delete Singular Cache for this Post (all variations)
+		$singular_dir = $this->cache_dir . 'singular/';
+		// Pattern: post-{id}-*.html
+		$files = glob( $singular_dir . 'post-' . $post_id . '-*.html' );
 		if ( is_array( $files ) ) {
 			foreach ( $files as $file ) {
-				if ( is_file( $file ) ) {
-					@unlink( $file );
-				}
+				@unlink( $file );
+			}
+		}
+
+		// 2. Delete ALL Archive Caches
+		// Because we don't know which archives this post appears on.
+		$archive_dir = $this->cache_dir . 'archives/';
+		$archives    = glob( $archive_dir . '*.html' );
+		if ( is_array( $archives ) ) {
+			foreach ( $archives as $file ) {
+				@unlink( $file );
 			}
 		}
 	}
 
 	/**
-	 * Cloning forbidden.
+	 * Nuke everything (Themes/Menus changed or Manual Purge).
 	 */
-	public function __clone() {
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning is forbidden.', 'agewallet' ), '1.1.0' );
+	public function clear_all_cache() {
+		$count = 0;
+		// Clear Singular
+		$files = glob( $this->cache_dir . 'singular/*.html' );
+		if ( is_array( $files ) ) {
+			foreach ( $files as $file ) {
+				if ( @unlink( $file ) ) $count++;
+			}
+		}
+		// Clear Archives
+		$files = glob( $this->cache_dir . 'archives/*.html' );
+		if ( is_array( $files ) ) {
+			foreach ( $files as $file ) {
+				if ( @unlink( $file ) ) $count++;
+			}
+		}
+		return $count;
 	}
 
-	/**
-	 * Unserializing forbidden.
-	 */
-	public function __wakeup() {
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Unserializing forbidden.', 'agewallet' ), '1.1.0' );
-	}
-
+	public function __clone() { _doing_it_wrong( __FUNCTION__, esc_html__( 'Forbidden', 'agewallet' ), '1.1.0' ); }
+	public function __wakeup() { _doing_it_wrong( __FUNCTION__, esc_html__( 'Forbidden', 'agewallet' ), '1.1.0' ); }
 }

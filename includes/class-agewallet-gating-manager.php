@@ -129,58 +129,78 @@ class AgeWallet_Gating_Manager {
 		$this->log_debug( '[Gating Manager] Assets registered.' );
 	}
 
-	/**
-	 * Intercepts the template loading process to serve the Gatekeeper Skeleton
-	 * when Strict Mode is enabled.
-	 *
-	 * @since 1.1.0
-	 * @param string $template The path to the template WordPress intends to load.
-	 * @return string The template path (modified if gated).
-	 */
-	public function intercept_template_loading( $template ) {
-		// 1. Bypass if this is a Loopback Request (API building cache).
-		// The API handler defines this constant if the secret key is present.
-		if ( defined( 'AGEWALLET_CACHE_BUILDING' ) && AGEWALLET_CACHE_BUILDING ) {
-			$this->log_debug( 'Template Intercept: Bypassing for Cache Build (Loopback).' );
-			return $template;
-		}
+/**
+     * Intercepts the template loading process to serve the Gatekeeper Skeleton
+     * when Strict Mode is enabled.
+     *
+     * @since 1.1.0
+     * @param string $template The path to the template WordPress intends to load.
+     * @return string The template path (modified if gated).
+     */
+    public function intercept_template_loading( $template ) {
+        // 1. Bypass if this is a Loopback Request (API building cache).
+        // We check BOTH the constant (set by API class) AND the query string directly as a fail-safe.
+        $bypass_secret = get_option( 'agewallet_loopback_secret' );
 
-		// 2. Check if Strict Mode is enabled.
-		$mode = get_option( 'agewallet_protection_mode', 'standard' );
-		if ( 'strict' !== $mode ) {
-			return $template;
-		}
+        // FIX: WordPress applies "magic quotes" to $_GET. We must strip slashes to match the DB secret.
+        $param_secret  = isset( $_GET['aw_cache_bypass'] ) ? stripslashes( $_GET['aw_cache_bypass'] ) : '';
 
-		// 3. Initial Checks (Admin, Feed, API, etc).
-		if ( $this->is_excluded_context() ) {
-			$this->log_debug( 'Template Intercept: Context excluded (Admin/Feed/Editor).' );
-			return $template;
-		}
+        // --- DEBUGGING INSTRUMENTATION ---
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // Only log if we are potentially dealing with a bypass attempt to reduce noise
+            if ( ! empty( $param_secret ) ) {
+                $this->log_debug( '--- BYPASS DEBUG ---' );
+                $this->log_debug( 'Stored Secret: ' . $bypass_secret );
+                $this->log_debug( 'Incoming Raw: ' . ( isset( $_GET['aw_cache_bypass'] ) ? $_GET['aw_cache_bypass'] : 'NULL' ) );
+                $this->log_debug( 'Incoming Stripped: ' . $param_secret );
+                $this->log_debug( 'Constant Defined: ' . ( defined( 'AGEWALLET_CACHE_BUILDING' ) ? 'YES' : 'NO' ) );
+            }
+        }
+        // --- END DEBUGGING ---
 
-		// 4. Check Verification Cookie (Server-side check).
-		// If user is verified, we allow the normal template to load (unless cache logic changes).
-		if ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && '1' === $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) {
-			$this->log_debug( 'Template Intercept: User verified via cookie. Serving real template.' );
-			return $template;
-		}
+        // Check if secret exists and matches.
+        $is_valid_bypass = ( ! empty( $bypass_secret ) && hash_equals( $bypass_secret, $param_secret ) );
 
-		// 5. Check Content Rules (Is this specific page protected?).
-		if ( ! $this->should_restrict_content() ) {
-			$this->log_debug( 'Template Intercept: Content does not require gating.' );
-			return $template;
-		}
+        if ( ( defined( 'AGEWALLET_CACHE_BUILDING' ) && AGEWALLET_CACHE_BUILDING ) || $is_valid_bypass ) {
+            $this->log_debug( 'Template Intercept: Bypassing for Cache Build (Loopback via Query/Const).' );
 
-		// 6. Serve the Skeleton.
-		$this->log_debug( 'Template Intercept: Serving Gatekeeper Skeleton.' );
-		$skeleton_path = AGEWALLET_PLUGIN_DIR . 'templates/gatekeeper.php';
-		if ( file_exists( $skeleton_path ) ) {
-			// Allow developers to swap the skeleton template.
-			return apply_filters( 'agewallet_skeleton_template', $skeleton_path );
-		}
+            // Also ensure W3TC Lazy Load is disabled for this request if it wasn't caught earlier.
+            add_filter( 'w3tc_lazyload_can_process', '__return_false' );
 
-		$this->log_debug( 'Template Intercept ERROR: Skeleton file not found at ' . $skeleton_path );
-		return $template;
-	}
+            return $template;
+        }
+
+        // 2. Check if Strict Mode is enabled.
+        $mode = get_option( 'agewallet_protection_mode', 'standard' );
+        if ( 'strict' !== $mode ) {
+            return $template;
+        }
+
+        // 3. Initial Checks (Admin, Feed, API, etc).
+        if ( $this->is_excluded_context() ) {
+            $this->log_debug( 'Template Intercept: Context excluded (Admin/Feed/Editor).' );
+            return $template;
+        }
+
+        // 4. Check Content Rules (Is this specific page protected?).
+        if ( ! $this->should_restrict_content() ) {
+            $this->log_debug( 'Template Intercept: Content does not require gating.' );
+            return $template;
+        }
+
+        // 5. Serve the Skeleton (UNCONDITIONALLY).
+        // We specifically removed the cookie check here to ensure Cloudflare always caches the Skeleton.
+        // The hydration logic in gate.js will handle verified users.
+        $this->log_debug( 'Template Intercept: Serving Gatekeeper Skeleton (Strict Mode Active).' );
+        $skeleton_path = AGEWALLET_PLUGIN_DIR . 'templates/gatekeeper.php';
+        if ( file_exists( $skeleton_path ) ) {
+            // Allow developers to swap the skeleton template.
+            return apply_filters( 'agewallet_skeleton_template', $skeleton_path );
+        }
+
+        $this->log_debug( 'Template Intercept ERROR: Skeleton file not found at ' . $skeleton_path );
+        return $template;
+    }
 
 	/**
 	 * Determines if the current page view requires gating or uses protected content,
@@ -534,9 +554,9 @@ class AgeWallet_Gating_Manager {
 	/**
 	 * Generates the HTML markup for the age gate prompt.
 	 * @since 0.1.0
-	 * @access private
+	 * @access public
 	 */
-	private function get_gate_html() {
+	public function get_gate_html() {
 		$this->log_debug( '[Gating Manager] Generating gate HTML.' );
 
 		$logo_id    = (int) get_option( AgeWalletOIDCClientPro::OPT_LOGO_ID, 0 );
@@ -791,7 +811,7 @@ class AgeWallet_Gating_Manager {
 	// --- Singleton Pattern Boilerplate ---
 	/** Cloning forbidden. @since 0.1.0 */
 	public function __clone() {
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning forbidden.', 'agewallet' ), '0.1.0' );
+		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning is forbidden.', 'agewallet' ), '0.1.0' );
 	}
 	/** Unserializing forbidden. @since 0.1.0 */
 	public function __wakeup() {
