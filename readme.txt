@@ -4,8 +4,8 @@ Tags: age verification, age gate, agewallet, content restriction, oidc, access c
 Requires at least: 5.8
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 1.0.2
-Version: 1.0.2
+Stable tag: 1.1.0-dev.1
+Version: 1.1.0-dev.1
 Author: AgeWallet LLC
 Author URI: https://agewallet.com
 
@@ -22,13 +22,16 @@ Key Features:
 
 * Legal Compliance: Leverages the AgeWallet™ service, which is designed to comply with modern age verification laws and regulations in most major countries, helping you meet your legal obligations.
 * Secure Verification Flow: Implements the recommended OIDC Authorization Code Flow with PKCE for maximum security, ensuring that user data is handled safely.
+* Enhanced Cookie Security: Uses HMAC cryptographic signing to prevent cookie forgery. Verification cookies are strictly tied to the user session and mathematically verified by the server.
 * Two Security Modes:
     * Standard (Overlay): A lightweight, SEO-friendly overlay that hides content via CSS and JavaScript.
     * High Security (Strict): Prevents protected content from loading entirely until verification is complete. Uses a secure "Skeleton" loading state and is compatible with "Cache Everything" page rules (Cloudflare/Varnish). However this mode will also prevent SEO crawling of protected content.
 * Smart Caching Architecture: Strict mode utilizes a split-cache system (Singular vs. Archives) to ensure fast performance while allowing for immediate invalidation when content changes.
+* Automated Cache Management: Includes a configurable garbage collection schedule to keep your storage footprint low, plus extended invalidation triggers for global site changes.
 * Fully Customizable Gate: Match the age gate to your brand. Upload your logo, use a WYSIWYG editor for messaging, and override styles with Custom CSS.
 * Flexible Content Protection Rules:
     * Full Site Protection: Protect your entire site, including or excluding the homepage.
+    * Granular Taxonomy Control: Gate or exclude content based on specific Categories, Tags, or Custom Taxonomies (e.g., WooCommerce Product Categories).
     * Path-Based Protection: Automatically protect specific URL paths (e.g., `/shop/`, `/videos/premium/`).
     * Per-Post Control: Force or exclude verification on individual posts via the editor sidebar.
     * Shortcode Protection: Protect specific page elements using `[agewallet_protected]`.
@@ -73,7 +76,14 @@ B. Global Scope
 * Protect entire site, except homepage: Gates every page and post except your front page.
 * Protect entire site, including homepage: Gates every single page on your site.
 
-C. Path-Based Rules
+C. Taxonomy Rules
+
+You can define rules based on Categories, Tags, or Custom Taxonomies (like WooCommerce Product Categories).
+* Gate All Terms: Gates every post belonging to that taxonomy.
+* Exclude All Terms: Ensures posts in that taxonomy are always public.
+* Specific Rules: Search for specific terms (e.g., "Premium Content" category) to Gate or Exclude individually. Note: Exclusion rules take priority over Gating rules.
+
+D. Path-Based Rules
 
 * Paths to Protect: (Only active if "Specific URL paths" is selected above). Enter comma-separated paths. Any URL containing these paths will be gated.
     * Example: `/shop/, /videos/` will protect `example.com/shop/`, `example.com/shop/product-1/`, and `example.com/videos/my-video/`.
@@ -105,7 +115,7 @@ Use these fields to add essential scripts back in:
 On the Edit Post or Edit Page screen, you will see an "Age Restriction" box in the sidebar. These settings override all global rules.
 
 * Require age verification: Check this to force the gate on this single post, even if your global setting is "No automatic protection."
-* Exclude from age verification: Check this to make a post public, even if it's in a protected path (like `/shop/`).
+* Exclude from age verification: Check this to make a post public, even if it's in a protected path (like `/shop/`) or a protected Category.
 
 = 6. Shortcode Protection =
 
@@ -115,14 +125,15 @@ To protect just one part of a post (like a single video or paragraph), wrap it i
 This content, and only this content, will be hidden until the user verifies their age.
 `[/agewallet_protected]`
 
-Note: Shortcode protection onnly works in Standard Mode. In Strict Mode, the shortcode will NOT work.
+Note: Shortcode protection only works in Standard Mode. In Strict Mode, the shortcode will NOT work.
 
 = 7. Caching & Maintenance =
 
 If you use High Security Mode, the plugin generates static HTML caches of your protected pages to ensure speed.
 
-* Automatic Management: The cache is automatically cleared when you update posts, switch themes, or change menus.
-* Manual Purge: If you change settings and don't see them update immediately, click the "Purge Cache" button available in the sidebar of any AgeWallet settings page (or under Debugging).
+* Automatic Management: The cache is automatically cleared when you update posts, switch themes, create/edit menus, or modify taxonomy terms.
+* Scheduled Cleanup: You can configure an automatic cache purge schedule (default: every 4 hours) in the "Cache Control" settings tab.
+* Manual Purge: If you change settings and don't see them update immediately, click the "Purge Cache" button available in the sidebar of any AgeWallet settings page (or under Cache Control).
 
 == CSS Customization Guide ==
 
@@ -233,6 +244,8 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * `agewallet_launch_url` (filter) - Modify the `/agewallet/launch/` URL.
 * `agewallet_cookie_path` (filter) - Modify the path used for the verification cookie.
 * `agewallet_current_url` (filter) - Override the auto-detected current URL.
+* `agewallet_cookie_payload` (filter) - Modify the data array stored inside the signed cookie before it is signed.
+* `agewallet_cookie_validation_error` (action) - Fires when a cookie fails HMAC validation (args: error_type, cookie_value).
 
 = OIDC Handler (class-agewallet-oidc-handler.php) =
 * `agewallet_state_transient_expiration` (filter) - Change the expiration time for the OIDC session transient.
@@ -251,6 +264,8 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * `agewallet_after_gate_buttons` (action) - Add custom HTML content after the Agree/Disagree buttons on the gate.
 * `agewallet_meta_box_save` (action) - Fires when the age restriction setting is saved for a post or page.
 * `agewallet_meta_box_post_types` (filter) - Control which post types show the Age Restriction meta box.
+* `agewallet_template_include_priority` (filter) - Adjust the priority of the strict mode template interception (default: 99).
+* `agewallet_taxonomy_rules` (filter) - Modify the loaded array of taxonomy blocking rules before they are evaluated.
 
 = Strict Mode & Caching (class-agewallet-api.php & gatekeeper.php) =
 * `agewallet_skeleton_template` (filter) - Replace the `gatekeeper.php` template file entirely.
@@ -262,6 +277,10 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * `agewallet_loopback_url` (filter) - Modify the URL used by the cache builder (useful for specific proxy setups).
 * `agewallet_loopback_request_args` (filter) - Modify HTTP args (timeout, headers) for the cache build request.
 * `agewallet_api_content_response` (filter) - Modify the HTML content string before it is returned by the API to the frontend.
+* `agewallet_is_user_verified` (filter) - Master boolean override for server-side verification checks.
+* `agewallet_cache_invalidation_events` (filter) - Modify the list of WP actions that trigger a global cache purge.
+* `agewallet_before_cache_purge` (action) - Fires immediately before cache files are deleted (args: type, count/id).
+* `agewallet_after_cache_purge` (action) - Fires immediately after cache files are deleted.
 
 == Changelog ==
 
@@ -287,7 +306,14 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * UX: Refactored Admin Settings into a multi-step Wizard.
 * Feature: Added Manual Cache Purge tool.
 
+= 1.1.0-dev.1 =
+* Security: Implemented HMAC cryptographic signing for verification cookies to prevent forgery.
+* Feature: Added granular Taxonomy Gating (support for Categories, Tags, and Custom Taxonomies).
+* Feature: Added "Cache Control" settings with configurable auto-purge schedule (WP-Cron).
+* Feature: Extended automatic cache invalidation to include Menu, Theme, and Term updates.
+* Dev: Added multiple new hooks for deep customization of cookies, caching, and taxonomy rules.
+
 == Upgrade Notice ==
 
-= 1.0.2 =
-This is the updated public beta release. Enjoy!
+= 1.1.0-dev.1 =
+This update includes significant security enhancements (signed cookies) and granular gating controls. Please clear your browser cookies after updating to test the new verification flow.

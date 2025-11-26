@@ -4,7 +4,7 @@
  * Checks for the verification cookie. Handles:
  * 1. Displaying a full-screen overlay if automatic gating is active and user is unverified.
  * 2. Showing/hiding content wrapped in the [agewallet_protected] shortcode based on verification status.
- * 3. (New) Strict Mode: Fetches secure content via API (verified) or reveals Gate UI (unverified).
+ * 3. Strict Mode: Fetches secure content via API (verified) or reveals Gate UI (unverified).
  *
  * @since 0.1.0
  */
@@ -24,30 +24,33 @@
 
     /**
      * Function to check if the verification cookie exists.
+     * Checks for Signed Cookie Format (Base64.Signature)
      * @param {string} cookieName The name of the cookie to check.
-     * @returns {boolean} True if the cookie exists with value '1', false otherwise.
+     * @returns {boolean} True if the cookie exists and matches the signed format.
      */
     function isVerified(cookieName) {
         if (!cookieName) {
             console.error('[AgeWallet Gate] Cookie name is missing.');
-            return false; // Cannot check without a name
-        }
-        // Simple check for 'cookieName=1' somewhere in the cookies
-        var cookieValue = cookieName + '=1';
-        // Check using indexOf which is widely compatible
-        var exists = document.cookie.indexOf(cookieValue) > -1;
-
-        // More robust check to avoid partial matches (e.g., cookie 'other_verified=1')
-        // Check for '; cookieName=1' or 'cookieName=1' at the start
-        var parts = document.cookie.split('; ');
-        for (var i = 0; i < parts.length; i++) {
-            if (parts[i] === cookieValue) {
-                exists = true;
-                break;
-            }
+            return false;
         }
 
-        return exists;
+        // Retrieve raw cookie value
+        var match = document.cookie.match(new RegExp('(^| )' + cookieName + '=([^;]+)'));
+        if (!match) return false;
+
+        var cookieValue = decodeURIComponent(match[2]);
+
+        // Validate Format: Base64Payload.HexSignature
+        // Base64 (approx): [a-zA-Z0-9+/=]+
+        // Hex (SHA256): [a-f0-9]{64}
+        var signatureRegex = /^[a-zA-Z0-9+/=]+\.[a-f0-9]{64}$/;
+
+        if (signatureRegex.test(cookieValue)) {
+            return true;
+        }
+
+        console.warn('[AgeWallet Gate] Cookie present but invalid signature format.');
+        return false;
     }
 
     /**
@@ -114,7 +117,7 @@
         }
 
         var xhr = new XMLHttpRequest();
-        // CHANGED: Switched from GET to POST to prevent server-side caching
+        // Uses POST to prevent server-side caching
         xhr.open('POST', apiEndpoint, true);
         xhr.withCredentials = true; // Send cookies with request
 
@@ -129,7 +132,12 @@
                         document.close();
                     } else {
                         console.error('[AgeWallet Strict] API returned error or empty HTML.', response);
-                        document.body.innerHTML = '<p>Error loading content: ' + (response.message || 'Unknown error') + '</p>';
+                        // Force Reload to clear invalid state if session expired
+                        if (response.error === 'unverified') {
+                             window.location.reload();
+                        } else {
+                             document.body.innerHTML = '<p>Error loading content: ' + (response.message || 'Unknown error') + '</p>';
+                        }
                     }
                 } catch (e) {
                     console.error('[AgeWallet Strict] JSON Parse Error', e);
@@ -154,7 +162,6 @@
 
         // Check if the localized data object exists
         if (typeof agewallet_gate_data === 'undefined' || !agewallet_gate_data) {
-            console.log('[AgeWallet Gate] agewallet_gate_data not found (this may be normal if using shortcode fallback).');
             var pendingClass = 'agewallet-gated-pending';
             document.body.classList.remove(pendingClass);
             document.body.style.visibility = 'visible';
@@ -184,7 +191,7 @@
                 event.preventDefault();
                 var rUrl = agreeButton.getAttribute('data-redirect-url');
                 if (rUrl) {
-                    // CHANGED: Use a Form POST to navigate, preventing caching of the launch request
+                    // Use a Form POST to navigate, preventing caching of the launch request
                     var form = document.createElement('form');
                     form.method = 'POST';
                     form.action = rUrl;

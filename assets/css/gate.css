@@ -288,7 +288,6 @@ body.aw-verify-body {
 .aw-gate__btn--no {
   /* Default light theme */
   background: var(--aw-no-btn-light-bg);
-  /* border-color: var(--aw-no-btn-light-border); */ /* <-- REMOVED */
   color: var(--aw-no-btn-light-text);
   filter: grayscale(80%); /* Slightly less intense grayscale */
 }
@@ -297,7 +296,6 @@ body.aw-verify-body {
 .aw-gate__card .aw-gate__btn--no,
 .aw-gate__overlay .aw-gate__btn--no { /* Apply dark style to overlay */
   background: var(--aw-no-btn-dark-bg);
-  /* border-color: var(--aw-no-btn-dark-border); */ /* <-- REMOVED */
   color: var(--aw-no-btn-dark-text);
   filter: none; /* No grayscale needed on dark */
 }
@@ -313,7 +311,6 @@ body.aw-verify-body {
 .aw-gate__overlay .aw-gate__btn--no:focus { /* Dark hover */
     filter: none;
     background: #3a3a44; /* Darken slightly on hover */
-    /* border-color: #4a4a54; */ /* <-- REMOVED */
 }
 
 .aw-gate__btn--no:active {
@@ -325,7 +322,6 @@ body.aw-verify-body {
 /* "Yes" button styles (purple) */
 .aw-gate__btn--yes {
   background: var(--aw-purple);
-  /* border-color: var(--aw-purple); */ /* <-- REMOVED */
   color: #fff;
   box-shadow: 0 6px 15px rgba(106, 27, 154, 0.25); /* Adjusted shadow */
 }
@@ -333,7 +329,6 @@ body.aw-verify-body {
 .aw-gate__btn--yes:hover,
 .aw-gate__btn--yes:focus {
   background: var(--aw-purple-700);
-  /* border-color: var(--aw-purple-700); */ /* <-- REMOVED */
   transform: translateY(-1px);
   color: #fff; /* Ensure text remains white */
   box-shadow: 0 8px 20px rgba(106, 27, 154, 0.30); /* Slightly larger shadow on hover */
@@ -376,7 +371,7 @@ body.aw-verify-body {
   border: 1px solid #eee;
   color: var(--aw-text-light-bg);
   box-shadow: none; /* Remove shadow for inline placeholder */
-  border-radius: 8px; /* Maybe simpler radius? */
+  border-radius: 8px;
   padding: 1.5em; /* Adjust padding */
 }
 /* Adjust nested elements if needed */
@@ -406,7 +401,6 @@ body.aw-verify-body {
 }
 .agewallet-protected-placeholder .aw-gate__btn--no {
   background: var(--aw-no-btn-light-bg);
-  /* border-color: var(--aw-no-btn-light-border); */ /* <-- REMOVED */
   color: var(--aw-no-btn-light-text);
   filter: grayscale(80%);
 }

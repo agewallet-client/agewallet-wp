@@ -69,15 +69,63 @@ class AgeWallet_API {
 		// Register the API Endpoint.
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 
-		// Cache Invalidation Hooks.
-		add_action( 'save_post', array( $this, 'clear_post_cache' ), 10, 3 );
-		add_action( 'wp_update_nav_menu', array( $this, 'clear_all_cache' ) );
-		add_action( 'switch_theme', array( $this, 'clear_all_cache' ) );
+		// Register Extended Cache Invalidation Hooks
+		$this->register_extended_invalidation_hooks();
 
 		// Loopback Request Handling.
 		add_action( 'template_redirect', array( $this, 'handle_loopback_request' ), 0 );
 		// Inject Cache Type Header during loopback.
 		add_action( 'wp_headers', array( $this, 'add_cache_type_headers' ) );
+
+		// Register Cron Schedule and Event
+		add_filter( 'cron_schedules', array( $this, 'add_custom_cron_interval' ) );
+		add_action( 'agewallet_scheduled_purge_event', array( $this, 'clear_all_cache' ) );
+
+		// Detect Setting Change to Reschedule immediately
+		add_action( 'update_option_agewallet_cache_ttl', array( $this, 'handle_ttl_change' ), 10, 2 );
+
+		$this->schedule_cache_purge();
+	}
+
+	/**
+	 * Registers extended hooks for cache invalidation.
+	 */
+	private function register_extended_invalidation_hooks() {
+		// 1. Post Content Changes (Singular & Archive)
+		// 'save_post' handles post creation and updates.
+		add_action( 'save_post', array( $this, 'clear_post_cache' ), 10, 3 );
+
+		// 2. Comment Changes (Singular)
+		// Comments appear on the post page, so we must clear that specific post.
+		$comment_actions = array( 'comment_post', 'edit_comment', 'wp_set_comment_status' );
+		foreach ( $comment_actions as $action ) {
+			add_action( $action, array( $this, 'clear_post_cache_from_comment' ) );
+		}
+
+		// 3. Global Site Structure Changes (Clear EVERYTHING)
+		// These changes affect navigation, footers, or archives globally.
+		$global_actions = array(
+			// Theme/Menu
+			'switch_theme',
+			'wp_create_nav_menu',
+			'wp_update_nav_menu',
+			'wp_delete_nav_menu',
+			// Taxonomy Terms (Affects archives and potentially menus)
+			'create_term',
+			'edit_terms',
+			'delete_term',
+			// Links (Blogroll/Links Manager if active)
+			'add_link',
+			'edit_link',
+			'delete_link',
+		);
+
+		// Allow developers to modify this list
+		$global_actions = apply_filters( 'agewallet_cache_invalidation_events', $global_actions );
+
+		foreach ( $global_actions as $action ) {
+			add_action( $action, array( $this, 'clear_all_cache' ) );
+		}
 	}
 
 	/**
@@ -174,16 +222,28 @@ class AgeWallet_API {
 
 	/**
 	 * Securely checks if the user has the verification cookie.
+	 * Uses HMAC signature verification via Helper.
 	 */
 	private function is_user_verified() {
 		$cookie_name = defined( 'AgeWallet_Gating_Manager::VERIFIED_COOKIE_NAME' )
 			? AgeWallet_Gating_Manager::VERIFIED_COOKIE_NAME
 			: 'agewallet_verified';
 
-		if ( ! isset( $_COOKIE[ $cookie_name ] ) || '1' !== $_COOKIE[ $cookie_name ] ) {
+		if ( ! isset( $_COOKIE[ $cookie_name ] ) ) {
 			return false;
 		}
-		return true;
+
+		// Check standard override hook first
+		if ( apply_filters( 'agewallet_is_user_verified', false ) ) {
+			return true;
+		}
+
+		// Perform Cryptographic Verification
+		if ( class_exists( 'AgeWallet_Helpers' ) ) {
+			return AgeWallet_Helpers::instance()->verify_signed_cookie( $_COOKIE[ $cookie_name ] );
+		}
+
+		return false;
 	}
 
 	/**
@@ -307,11 +367,59 @@ class AgeWallet_API {
 	}
 
 	/**
-	 * Invalidation Logic.
+	 * WP-Cron: Adds the custom interval based on settings.
+	 */
+	public function add_custom_cron_interval( $schedules ) {
+		$interval = (int) get_option( 'agewallet_cache_ttl', 14400 );
+		// Ensure min 2 hours (7200) to prevent overload
+		if ( $interval < 7200 ) $interval = 7200;
+
+		$schedules['agewallet_custom_interval'] = array(
+			'interval' => $interval,
+			'display'  => sprintf( __( 'Every %d Seconds', 'agewallet' ), $interval ),
+		);
+		return $schedules;
+	}
+
+	/**
+	 * WP-Cron: Schedules or Reschedules the purge event.
+	 * Checks if the interval matches the setting; if not, reschedules.
+	 */
+	private function schedule_cache_purge() {
+		// If we have a scheduled event, we assume it's handled.
+		if ( wp_next_scheduled( 'agewallet_scheduled_purge_event' ) ) {
+			return;
+		}
+
+		// Schedule it
+		wp_schedule_event( time(), 'agewallet_custom_interval', 'agewallet_scheduled_purge_event' );
+	}
+
+	/**
+	 * WP-Cron: Handle setting change (Reschedule Immediately).
+	 * Hooked to update_option_agewallet_cache_ttl.
+	 */
+	public function handle_ttl_change( $old_value, $new_value ) {
+		if ( $old_value !== $new_value ) {
+			if ( class_exists( 'AgeWallet_Helpers' ) ) {
+				AgeWallet_Helpers::instance()->log( 'Cache TTL Changed. Rescheduling Cron.', array( 'old' => $old_value, 'new' => $new_value ) );
+			}
+			// Clear existing
+			wp_clear_scheduled_hook( 'agewallet_scheduled_purge_event' );
+
+			// Reschedule immediately (starts new cycle from NOW)
+			wp_schedule_event( time(), 'agewallet_custom_interval', 'agewallet_scheduled_purge_event' );
+		}
+	}
+
+	/**
+	 * Invalidation Logic: Post Save
 	 */
 	public function clear_post_cache( $post_id, $post, $update ) {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
 		if ( 'revision' === $post->post_type ) return;
+
+		do_action( 'agewallet_before_cache_purge', 'post', $post_id );
 
 		// 1. Delete Singular Cache for this Post (all variations)
 		$singular_dir = $this->cache_dir . 'singular/';
@@ -332,12 +440,29 @@ class AgeWallet_API {
 				@unlink( $file );
 			}
 		}
+
+		do_action( 'agewallet_after_cache_purge', 'post', $post_id );
+	}
+
+	/**
+	 * Invalidation Logic: Comments
+	 * Triggered by comment_post, edit_comment, etc.
+	 */
+	public function clear_post_cache_from_comment( $comment_id ) {
+		$comment = get_comment( $comment_id );
+		if ( $comment && $comment->comment_post_ID ) {
+			$post = get_post( $comment->comment_post_ID );
+			// Re-use clear_post_cache logic, passing params to match signature
+			$this->clear_post_cache( $comment->comment_post_ID, $post, false );
+		}
 	}
 
 	/**
 	 * Nuke everything (Themes/Menus changed or Manual Purge).
 	 */
 	public function clear_all_cache() {
+		do_action( 'agewallet_before_cache_purge', 'all', 0 );
+
 		$count = 0;
 		// Clear Singular
 		$files = glob( $this->cache_dir . 'singular/*.html' );
@@ -353,6 +478,8 @@ class AgeWallet_API {
 				if ( @unlink( $file ) ) $count++;
 			}
 		}
+
+		do_action( 'agewallet_after_cache_purge', 'all', $count );
 		return $count;
 	}
 

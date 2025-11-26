@@ -86,7 +86,9 @@ class AgeWallet_Gating_Manager {
 
 		// Strict Mode Interception (New in 1.1.0)
 		// Runs just before the template is included. Priority 99 ensures we override theme logic.
-		add_filter( 'template_include', array( $this, 'intercept_template_loading' ), 99 );
+		// Filter added to allow priority adjustment (Dev Hook)
+		$priority = apply_filters( 'agewallet_template_include_priority', 99 );
+		add_filter( 'template_include', array( $this, 'intercept_template_loading' ), $priority );
 
 		// Shortcode Hooks
 		add_shortcode( 'agewallet_button', array( $this, 'button_shortcode_handler' ) );
@@ -130,77 +132,77 @@ class AgeWallet_Gating_Manager {
 	}
 
 /**
-     * Intercepts the template loading process to serve the Gatekeeper Skeleton
-     * when Strict Mode is enabled.
-     *
-     * @since 1.1.0
-     * @param string $template The path to the template WordPress intends to load.
-     * @return string The template path (modified if gated).
-     */
-    public function intercept_template_loading( $template ) {
-        // 1. Bypass if this is a Loopback Request (API building cache).
-        // We check BOTH the constant (set by API class) AND the query string directly as a fail-safe.
-        $bypass_secret = get_option( 'agewallet_loopback_secret' );
+	 * Intercepts the template loading process to serve the Gatekeeper Skeleton
+	 * when Strict Mode is enabled.
+	 *
+	 * @since 1.1.0
+	 * @param string $template The path to the template WordPress intends to load.
+	 * @return string The template path (modified if gated).
+	 */
+	public function intercept_template_loading( $template ) {
+		// 1. Bypass if this is a Loopback Request (API building cache).
+		// We check BOTH the constant (set by API class) AND the query string directly as a fail-safe.
+		$bypass_secret = get_option( 'agewallet_loopback_secret' );
 
-        // FIX: WordPress applies "magic quotes" to $_GET. We must strip slashes to match the DB secret.
-        $param_secret  = isset( $_GET['aw_cache_bypass'] ) ? stripslashes( $_GET['aw_cache_bypass'] ) : '';
+		// WordPress applies "magic quotes" to $_GET. We must strip slashes to match the DB secret.
+		$param_secret  = isset( $_GET['aw_cache_bypass'] ) ? stripslashes( $_GET['aw_cache_bypass'] ) : '';
 
-        // --- DEBUGGING INSTRUMENTATION ---
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            // Only log if we are potentially dealing with a bypass attempt to reduce noise
-            if ( ! empty( $param_secret ) ) {
-                $this->log_debug( '--- BYPASS DEBUG ---' );
-                $this->log_debug( 'Stored Secret: ' . $bypass_secret );
-                $this->log_debug( 'Incoming Raw: ' . ( isset( $_GET['aw_cache_bypass'] ) ? $_GET['aw_cache_bypass'] : 'NULL' ) );
-                $this->log_debug( 'Incoming Stripped: ' . $param_secret );
-                $this->log_debug( 'Constant Defined: ' . ( defined( 'AGEWALLET_CACHE_BUILDING' ) ? 'YES' : 'NO' ) );
-            }
-        }
-        // --- END DEBUGGING ---
+		// --- DEBUGGING INSTRUMENTATION ---
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			// Only log if we are potentially dealing with a bypass attempt to reduce noise
+			if ( ! empty( $param_secret ) ) {
+				$this->log_debug( '--- BYPASS DEBUG ---' );
+				$this->log_debug( 'Stored Secret: ' . $bypass_secret );
+				$this->log_debug( 'Incoming Raw: ' . ( isset( $_GET['aw_cache_bypass'] ) ? $_GET['aw_cache_bypass'] : 'NULL' ) );
+				$this->log_debug( 'Incoming Stripped: ' . $param_secret );
+				$this->log_debug( 'Constant Defined: ' . ( defined( 'AGEWALLET_CACHE_BUILDING' ) ? 'YES' : 'NO' ) );
+			}
+		}
+		// --- END DEBUGGING ---
 
-        // Check if secret exists and matches.
-        $is_valid_bypass = ( ! empty( $bypass_secret ) && hash_equals( $bypass_secret, $param_secret ) );
+		// Check if secret exists and matches.
+		$is_valid_bypass = ( ! empty( $bypass_secret ) && hash_equals( $bypass_secret, $param_secret ) );
 
-        if ( ( defined( 'AGEWALLET_CACHE_BUILDING' ) && AGEWALLET_CACHE_BUILDING ) || $is_valid_bypass ) {
-            $this->log_debug( 'Template Intercept: Bypassing for Cache Build (Loopback via Query/Const).' );
+		if ( ( defined( 'AGEWALLET_CACHE_BUILDING' ) && AGEWALLET_CACHE_BUILDING ) || $is_valid_bypass ) {
+			$this->log_debug( 'Template Intercept: Bypassing for Cache Build (Loopback via Query/Const).' );
 
-            // Also ensure W3TC Lazy Load is disabled for this request if it wasn't caught earlier.
-            add_filter( 'w3tc_lazyload_can_process', '__return_false' );
+			// Also ensure W3TC Lazy Load is disabled for this request if it wasn't caught earlier.
+			add_filter( 'w3tc_lazyload_can_process', '__return_false' );
 
-            return $template;
-        }
+			return $template;
+		}
 
-        // 2. Check if Strict Mode is enabled.
-        $mode = get_option( 'agewallet_protection_mode', 'standard' );
-        if ( 'strict' !== $mode ) {
-            return $template;
-        }
+		// 2. Check if Strict Mode is enabled.
+		$mode = get_option( 'agewallet_protection_mode', 'standard' );
+		if ( 'strict' !== $mode ) {
+			return $template;
+		}
 
-        // 3. Initial Checks (Admin, Feed, API, etc).
-        if ( $this->is_excluded_context() ) {
-            $this->log_debug( 'Template Intercept: Context excluded (Admin/Feed/Editor).' );
-            return $template;
-        }
+		// 3. Initial Checks (Admin, Feed, API, etc).
+		if ( $this->is_excluded_context() ) {
+			$this->log_debug( 'Template Intercept: Context excluded (Admin/Feed/Editor).' );
+			return $template;
+		}
 
-        // 4. Check Content Rules (Is this specific page protected?).
-        if ( ! $this->should_restrict_content() ) {
-            $this->log_debug( 'Template Intercept: Content does not require gating.' );
-            return $template;
-        }
+		// 4. Check Content Rules (Is this specific page protected?).
+		if ( ! $this->should_restrict_content() ) {
+			$this->log_debug( 'Template Intercept: Content does not require gating.' );
+			return $template;
+		}
 
-        // 5. Serve the Skeleton (UNCONDITIONALLY).
-        // We specifically removed the cookie check here to ensure Cloudflare always caches the Skeleton.
-        // The hydration logic in gate.js will handle verified users.
-        $this->log_debug( 'Template Intercept: Serving Gatekeeper Skeleton (Strict Mode Active).' );
-        $skeleton_path = AGEWALLET_PLUGIN_DIR . 'templates/gatekeeper.php';
-        if ( file_exists( $skeleton_path ) ) {
-            // Allow developers to swap the skeleton template.
-            return apply_filters( 'agewallet_skeleton_template', $skeleton_path );
-        }
+		// 5. Serve the Skeleton (UNCONDITIONALLY).
+		// We specifically removed the cookie check here to ensure Cloudflare always caches the Skeleton.
+		// The hydration logic in gate.js will handle verified users.
+		$this->log_debug( 'Template Intercept: Serving Gatekeeper Skeleton (Strict Mode Active).' );
+		$skeleton_path = AGEWALLET_PLUGIN_DIR . 'templates/gatekeeper.php';
+		if ( file_exists( $skeleton_path ) ) {
+			// Allow developers to swap the skeleton template.
+			return apply_filters( 'agewallet_skeleton_template', $skeleton_path );
+		}
 
-        $this->log_debug( 'Template Intercept ERROR: Skeleton file not found at ' . $skeleton_path );
-        return $template;
-    }
+		$this->log_debug( 'Template Intercept ERROR: Skeleton file not found at ' . $skeleton_path );
+		return $template;
+	}
 
 	/**
 	 * Determines if the current page view requires gating or uses protected content,
@@ -211,11 +213,15 @@ class AgeWallet_Gating_Manager {
 	public function maybe_enqueue_gate_assets() {
 		$this->log_debug( '[Gating Manager] Checking if gate assets should be enqueued.' );
 
-		// Use centralized check for context/rules (Refactored logic).
+		// Use centralized check for context/rules.
 		$should_restrict = $this->should_restrict_content();
 
 		// Check for verified cookie (server-side).
-		$is_verified = ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && '1' === $_COOKIE[ self::VERIFIED_COOKIE_NAME ] );
+		$is_verified = false;
+		// Use Helper to verify HMAC signature
+		if ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && class_exists('AgeWallet_Helpers') ) {
+			 $is_verified = AgeWallet_Helpers::instance()->verify_signed_cookie( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] );
+		}
 
 		if ( ! $should_restrict || $is_verified ) {
 			$this->log_debug( 'Final Decision: No assets needed (Not restricted or already verified).' );
@@ -317,6 +323,61 @@ class AgeWallet_Gating_Manager {
 				if ( strpos( $current_path_norm, $ex_path_norm ) !== false || ( '/' === $ex_path && '/' === $path ) ) {
 					$this->log_debug( 'Rule Check: Path excluded by Global Exception.', array( 'path' => $ex_path ) );
 					return false; // Explicitly excluded.
+				}
+			}
+		}
+
+		// Check Taxonomy Rules
+		// Priority: Term Exclusion > Term Gate
+		if ( $post_id ) {
+			$tax_rules = get_option( 'agewallet_taxonomy_rules', array() );
+			// Dev Hook to modify rules dynamically
+			$tax_rules = apply_filters( 'agewallet_taxonomy_rules', $tax_rules );
+
+			if ( ! empty( $tax_rules ) && is_array( $tax_rules ) ) {
+				$gate_signal = false; // Store gate signal, but allow loop to continue looking for exclusions
+
+				foreach ( $tax_rules as $tax => $data ) {
+					$mode = isset( $data['mode'] ) ? $data['mode'] : 'ignore';
+					if ( 'ignore' === $mode ) continue;
+
+					// Check if post has terms in this taxonomy
+					$post_terms = get_the_terms( $post_id, $tax );
+					if ( ! $post_terms || is_wp_error( $post_terms ) ) continue;
+
+					// Extract IDs
+					$post_term_ids = wp_list_pluck( $post_terms, 'term_id' );
+
+					// A. Check Exclusions FIRST (Trump card inside taxonomy logic)
+					if ( 'exclude_all' === $mode ) {
+						$this->log_debug( 'Rule Check: Allowed by Taxonomy (Exclude All).', array( 'taxonomy' => $tax ) );
+						return apply_filters( 'agewallet_should_gate_request', false, $post_id );
+					}
+					elseif ( 'specific' === $mode && ! empty( $data['terms_exclude'] ) ) {
+						$excluded_term_ids = array_map( 'absint', explode( ',', $data['terms_exclude'] ) );
+						if ( array_intersect( $post_term_ids, $excluded_term_ids ) ) {
+							$this->log_debug( 'Rule Check: Allowed by Taxonomy (Specific Exclusion).', array( 'taxonomy' => $tax ) );
+							return apply_filters( 'agewallet_should_gate_request', false, $post_id );
+						}
+					}
+
+					// B. Check Gating (If no exclusion found yet)
+					if ( 'gate_all' === $mode ) {
+						$gate_signal = true;
+						$this->log_debug( 'Rule Check: Matched Gate All.', array( 'taxonomy' => $tax ) );
+					}
+					elseif ( 'specific' === $mode && ! empty( $data['terms_gate'] ) ) {
+						$gated_term_ids = array_map( 'absint', explode( ',', $data['terms_gate'] ) );
+						if ( array_intersect( $post_term_ids, $gated_term_ids ) ) {
+							$gate_signal = true;
+							$this->log_debug( 'Rule Check: Matched Specific Gate.', array( 'taxonomy' => $tax ) );
+						}
+					}
+				}
+
+				// If we found a gate signal and NO exclusion signal (we would have returned false already), return true.
+				if ( $gate_signal ) {
+					return apply_filters( 'agewallet_should_gate_request', true, $post_id );
 				}
 			}
 		}
@@ -467,16 +528,19 @@ class AgeWallet_Gating_Manager {
 			return do_shortcode( $content );
 		}
 
-		if ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && '1' === $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) {
-			 $this->log_debug( '[Gating Manager] Protected shortcode: User is verified (server-side cookie), showing content directly.' );
-			 return do_shortcode( $content );
+		// Check for Signed Cookie using AgeWallet_Helpers
+		if ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && class_exists('AgeWallet_Helpers') ) {
+			 if ( AgeWallet_Helpers::instance()->verify_signed_cookie( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) ) {
+				 $this->log_debug( '[Gating Manager] Protected shortcode: User is verified (HMAC check), showing content.' );
+				 return do_shortcode( $content );
+			 }
 		}
 
 		// Ensure assets are loaded if maybe_enqueue_gate_assets didn't run or detect it early enough.
 		if ( ! $this->assets_enqueued ) {
 			$this->log_debug( '[Gating Manager] Enqueuing assets from protected_content_shortcode_handler (fallback needed).' );
 
-			// --- FIX: Manually register scripts/styles first, in case register_assets() hasn't run ---
+			// --- Manually register scripts/styles first, in case register_assets() hasn't run ---
 			// This logic is duplicated from register_assets() to make this fallback robust.
 
 			// Register Stylesheet.
@@ -504,7 +568,7 @@ class AgeWallet_Gating_Manager {
 				}
 				wp_register_script( self::SCRIPT_HANDLE, AGEWALLET_PLUGIN_URL . $script_path, array( 'jquery' ), $script_ver, true );
 			}
-			// --- END REGISTRATION FIX ---
+			// --- END REGISTRATION ---
 
 			// Now enqueue them.
 			wp_enqueue_style( self::STYLE_HANDLE );
@@ -519,11 +583,11 @@ class AgeWallet_Gating_Manager {
 					'isOverlayActive'  => false,
 				);
 
-				// --- FIX: Use wp_add_inline_script instead of wp_localize_script ---
+				// --- Use wp_add_inline_script instead of wp_localize_script ---
 				// This correctly adds the data object before the script tag, even when called late.
 				$script_data_string = 'var agewallet_gate_data = ' . wp_json_encode( $script_data ) . ';';
 				wp_add_inline_script( self::SCRIPT_HANDLE, $script_data_string, 'before' );
-				// --- END INLINE SCRIPT FIX ---
+				// --- END INLINE SCRIPT ---
 
 				$this->log_debug( '[GGating Manager] Injected minimal script data via shortcode fallback (wp_add_inline_script).' );
 			} else {

@@ -340,7 +340,7 @@
              if ('access_denied' === $error && $error_description === $region_exemption_desc) {
                  $this->log_debug('[OIDC Handler] Regional exemption detected. Treating as success.');
                  // Proceed directly to Step 6 (Success Redirect Setup)
-                 $this->proceed_to_success($redirect_to); // Helper function for clarity
+                 $this->proceed_to_success($redirect_to, $nonce); // Pass nonce
                  exit;
              }
 
@@ -503,7 +503,7 @@
          // --- End UserInfo Check ---
 
          // --- 8. Proceed to Success Page (after successful verification) ---
-         $this->proceed_to_success($redirect_to);
+         $this->proceed_to_success($redirect_to, $nonce);
      }
 
 
@@ -569,8 +569,11 @@
             $this->log_debug('[OIDC Handler] Warning: AgeWallet_Gating_Manager class or constant not found, using fallback cookie name.', ['name' => $cookie_name]);
         }
 
-         $cookie_value = '1';
-         $this->log_debug('[OIDC Handler] Setting cookie as session cookie (expires on browser close).');
+         // Generate Signed Cookie using unique nonce as salt
+         $nonce_salt = isset($transient_data['nonce']) ? $transient_data['nonce'] : '';
+         $cookie_value = AgeWallet_Helpers::instance()->generate_signed_cookie( $nonce_salt );
+
+         $this->log_debug('[OIDC Handler] Setting signed session cookie (expires on browser close).');
 
          // --- Cookie Attribute Handling ---
          $site_path = AgeWallet_Helpers::instance()->get_site_path();
@@ -660,13 +663,20 @@
 
      /**
       * Helper function to perform the steps needed to redirect to the success page.
+      * passes Nonce for HMAC salt.
       * @since 0.1.0
       */
-     private function proceed_to_success( $redirect_to ) {
+     private function proceed_to_success( $redirect_to, $nonce ) {
          $success_token = AgeWallet_Helpers::instance()->generate_random_hex(16);
          $success_transient_key = self::SUCCESS_TOKEN_PREFIX . $success_token;
 
-         $set_success_transient = set_transient($success_transient_key, wp_json_encode(['redirect_to' => $redirect_to]), 2 * MINUTE_IN_SECONDS);
+         // Store nonce so it can be used as salt on the final page
+         $transient_data = [
+             'redirect_to' => $redirect_to,
+             'nonce'       => $nonce
+         ];
+
+         $set_success_transient = set_transient($success_transient_key, wp_json_encode($transient_data), 2 * MINUTE_IN_SECONDS);
 
          $this->log_debug('[OIDC Handler] Success transient set (for success/exemption).', ['key' => $success_transient_key, 'success' => $set_success_transient ? 'Yes' : 'No']);
          if ( ! $set_success_transient ) {

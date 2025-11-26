@@ -5,10 +5,7 @@
  * Version:     1.1.0-dev.1
  * Author:      AgeWallet LLC
  * Author URI:  https://agewallet.com
- * License:     GPL-2.0+
- * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain: agewallet
- * Domain Path: /languages
  * Requires at least: 5.8
  * Requires PHP: 7.4
  */
@@ -158,9 +155,9 @@ final class AgeWalletOIDCClientPro {
 		$files_to_include = array(
 			'class-agewallet-helpers.php',
 			'class-agewallet-admin.php',
-			'class-agewallet-oidc-handler.php', // Step 3
-			'class-agewallet-gating-manager.php', // Step 4/5
-			'class-agewallet-api.php', // NEW: API & Cache Handler (Strict Mode)
+			'class-agewallet-oidc-handler.php',
+			'class-agewallet-gating-manager.php',
+			'class-agewallet-api.php',
 		);
 
 		// HOOK: Allow developers to add/remove/change dependency files.
@@ -316,8 +313,6 @@ final class AgeWalletOIDCClientPro {
 				AGEWALLET_PLUGIN_FILE, // Full path to this plugin's main file
 				'agewallet'    // The plugin's slug (must match server)
 			);
-			// Optional: If you're using a private GitHub repo, you'd add token auth here.
-			// But we are using WP-Update-Server, so this is not needed.
 
 			$this->log_debug( 'Plugin Update Checker initialized.', array( 'slug' => 'agewallet' ) );
 
@@ -392,6 +387,10 @@ final class AgeWalletOIDCClientPro {
 		// --- DEBUG LOGGING ---
 		error_log( '[AgeWallet Plugin] Static deactivate_plugin hook fired.' );
 		// --- END DEBUG LOGGING ---
+
+		// Clear scheduled cron event
+		wp_clear_scheduled_hook( 'agewallet_scheduled_purge_event' );
+
 		flush_rewrite_rules(); // Remove/Save rules
 		// --- DEBUG LOGGING ---
 		error_log( '[AgeWallet Plugin] Rewrite rules flushed during deactivation.' );
