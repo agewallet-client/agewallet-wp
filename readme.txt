@@ -296,17 +296,15 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 = 1.0.1 =
 * CSS and Documentation tweaks.
 
-= 1.0.12 =
+= 1.2.0 =
 * Patched 2 bugs preventing shortcode from working properly in some environments.
 
-= 1.1.0-dev =
+= 1.3.0
 * Architecture: Implemented High Security (Strict) Mode with API-based content retrieval.
 * Architecture: Added Split-Cache system (Singular/Archive) for intelligent invalidation.
 * Compatibility: Switched verification triggers to POST requests to bypass aggressive host caching (WP Engine, etc).
 * UX: Refactored Admin Settings into a multi-step Wizard.
 * Feature: Added Manual Cache Purge tool.
-
-= 1.1.0-dev.1 =
 * Security: Implemented HMAC cryptographic signing for verification cookies to prevent forgery.
 * Feature: Added granular Taxonomy Gating (support for Categories, Tags, and Custom Taxonomies).
 * Feature: Added "Cache Control" settings with configurable auto-purge schedule (WP-Cron).
@@ -315,5 +313,5 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 
 == Upgrade Notice ==
 
-= 1.1.0-dev.1 =
+= 1.3.0 =
 This update includes significant security enhancements (signed cookies) and granular gating controls. Please clear your browser cookies after updating to test the new verification flow.
