@@ -287,22 +287,7 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 = 1.3.1 =
 * Fix: On verification failure, redirect user back to originating page so the age gate re-triggers, rather than showing a misleading "cancelled or denied" message.
 
-= 0.1.7 =
-* Tweak: Standardized all front-end CSS class names for better consistency and to prevent theme conflicts.
-* Tweak: Converted the "I Agree" link into a &lt;button&gt; element for better styling compatibility across themes.
-* Feature: Added numerous developer hooks and filters for improved extensibility.
-* Security: Hardened client-side script by adding click handlers dynamically instead of using inline attributes.
-
-= 1.0.0 =
-* Feature: Added an in-dashboard "Plugin Guide" page that displays the plugin's readme file.
-
-= 1.0.1 =
-* CSS and Documentation tweaks.
-
-= 1.2.0 =
-* Patched 2 bugs preventing shortcode from working properly in some environments.
-
-= 1.3.0
+= 1.3.0 =
 * Architecture: Implemented High Security (Strict) Mode with API-based content retrieval.
 * Architecture: Added Split-Cache system (Singular/Archive) for intelligent invalidation.
 * Compatibility: Switched verification triggers to POST requests to bypass aggressive host caching (WP Engine, etc).
@@ -314,7 +299,22 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * Feature: Extended automatic cache invalidation to include Menu, Theme, and Term updates.
 * Dev: Added multiple new hooks for deep customization of cookies, caching, and taxonomy rules.
 
+= 1.2.0 =
+* Patched 2 bugs preventing shortcode from working properly in some environments.
+
+= 1.0.1 =
+* CSS and Documentation tweaks.
+
+= 1.0.0 =
+* Feature: Added an in-dashboard "Plugin Guide" page that displays the plugin's readme file.
+
+= 0.1.7 =
+* Tweak: Standardized all front-end CSS class names for better consistency and to prevent theme conflicts.
+* Tweak: Converted the "I Agree" link into a &lt;button&gt; element for better styling compatibility across themes.
+* Feature: Added numerous developer hooks and filters for improved extensibility.
+* Security: Hardened client-side script by adding click handlers dynamically instead of using inline attributes.
+
 == Upgrade Notice ==
 
-= 1.3.0 =
-This update includes significant security enhancements (signed cookies) and granular gating controls. Please clear your browser cookies after updating to test the new verification flow.
+= 1.3.1 =
+On verification failure, users are now redirected back to the originating page instead of seeing a generic error.
