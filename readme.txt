@@ -4,8 +4,8 @@ Tags: age verification, age gate, agewallet, content restriction, oidc, access c
 Requires at least: 5.8
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 1.3.0
-Version: 1.3.0
+Stable tag: 1.3.1
+Version: 1.3.1
 Author: AgeWallet LLC
 Author URI: https://agewallet.com
 
@@ -283,6 +283,9 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * `agewallet_after_cache_purge` (action) - Fires immediately after cache files are deleted.
 
 == Changelog ==
+
+= 1.3.1 =
+* Fix: On verification failure, redirect user back to originating page so the age gate re-triggers, rather than showing a misleading "cancelled or denied" message.
 
 = 0.1.7 =
 * Tweak: Standardized all front-end CSS class names for better consistency and to prevent theme conflicts.
