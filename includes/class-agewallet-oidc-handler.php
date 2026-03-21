@@ -346,7 +346,12 @@
 
              // Handle other errors (User cancellation or other OIDC errors)
              if ('access_denied' === $error) {
-                  // User cancelled or denied consent (and it wasn't the region exemption case)
+                  if ('Verification failed' === $error_description) {
+                      // Verification process failed — redirect back so the age gate re-triggers
+                      wp_safe_redirect($redirect_to);
+                      exit;
+                  }
+                  // User clicked "Deny" on consent screen
                   wp_die(
                      esc_html__('Age verification was cancelled or denied by the user.', 'agewallet'),
                      esc_html__('Verification Cancelled', 'agewallet'),
