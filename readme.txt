@@ -4,7 +4,7 @@ Tags: age verification, age gate, agewallet, content restriction, oidc, access c
 Requires at least: 5.8
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.4.0
 Version: 1.3.1
 Author: AgeWallet LLC
 Author URI: https://agewallet.com
@@ -284,6 +284,15 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 
 == Changelog ==
 
+= 1.4.0 =
+* Feature: Metadata pass-through. An opaque per-verification string (up to 4096 bytes) can now be attached to every AgeWallet verification. The Credentials page exposes a "Metadata source" picker with three modes: Off, Static text (literal string), and Auto JSON (compose from selected request-context fields — post / user / request / marketing / archive). Two filter hooks let developers extend: `agewallet_auto_metadata` (array, before encoding) and `agewallet_metadata` (final string, after encoding). Read back with `agewallet_get_metadata()`.
+* Feature: WooCommerce checkout gating. New "Always gate checkout" option on the Content Guarding page (visible only when WooCommerce is active) forces verification on the checkout page regardless of other rules. Per-checkout cart context (cart hash, total, currency, etc.) is attached automatically as metadata; customise via the `agewallet_wc_checkout_metadata` filter.
+* Safety: Strict-mode cache automatically skips WooCommerce checkout, cart, and my-account pages. Caching cart-bearing pages would either render an empty cart in the cookieless loopback or leak one customer's HTML to another, so these pages always render live.
+* Safety: In Strict mode, per-visitor metadata fields (user_id, user_role, utm_source, utm_campaign, referrer_host) are disabled because the cached skeleton can't carry per-request context. Per-URL fields (post_id, term_id, page_type, etc.) continue to work normally.
+* Architecture: Metadata is computed at gate-render time (where WordPress has the correct page context) and HMAC-signed for transport via the launch URL — fixes a latent bug where post/archive/search fields silently resolved to null because the builder previously ran in the /agewallet/launch endpoint's WP context.
+* Improvement: On WooCommerce checkout, site-level metadata (Default Metadata field) is now MERGED with the cart context JSON instead of being overridden. A "tenant-abc" static value plus cart fields produces `{"site_metadata":"tenant-abc","cart_hash":"...","cart_total":"..."}`.
+* Dev: New helper `agewallet_get_metadata()` and `AgeWallet_Helpers::get_verified_cookie_payload()`.
+
 = 1.3.1 =
 * Fix: On verification failure, redirect user back to originating page so the age gate re-triggers, rather than showing a misleading "cancelled or denied" message.
 
@@ -315,6 +324,9 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * Security: Hardened client-side script by adding click handlers dynamically instead of using inline attributes.
 
 == Upgrade Notice ==
+
+= 1.4.0 =
+Adds metadata pass-through and an opt-in WooCommerce checkout gating rule with per-order context attached as metadata.
 
 = 1.3.1 =
 On verification failure, users are now redirected back to the originating page instead of seeing a generic error.

@@ -54,6 +54,9 @@ $script_data = array(
     ),
 	'launchUrl'        => AgeWallet_Helpers::instance()->get_launch_url(),
 	'redirectUrl'      => $current_full_url,
+	'signedMetadata'   => ( class_exists( 'AgeWallet_Metadata_Builder' ) && ( $aw_md_value = AgeWallet_Metadata_Builder::build() ) )
+		? AgeWallet_Helpers::instance()->sign_metadata( $aw_md_value )
+		: '',
 	'bodyClassPending' => 'agewallet-strict-loading',
 );
 

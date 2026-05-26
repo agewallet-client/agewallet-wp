@@ -234,6 +234,21 @@
              'nonce' => $nonce, // Include nonce in request
          );
 
+         // Read metadata from the signed `md` query param (computed at gate-render time
+         // where WordPress has the correct page context). On bad signature → null.
+         // The agewallet_metadata filter still has final-word override.
+         // HOOK: agewallet_metadata - return a string (max 4096 bytes) or null/empty to skip.
+         $signed_md   = isset( $_GET['md'] ) ? wp_unslash( $_GET['md'] ) : '';
+         $base_value  = $signed_md ? AgeWallet_Helpers::instance()->verify_signed_metadata( $signed_md ) : null;
+         $metadata    = apply_filters( 'agewallet_metadata', $base_value );
+         if ( is_string( $metadata ) && '' !== $metadata ) {
+             if ( strlen( $metadata ) > AgeWalletOIDCClientPro::METADATA_MAX_BYTES ) {
+                 $this->log_debug( '[OIDC Handler] Metadata exceeds limit; truncating.', [ 'len' => strlen( $metadata ) ] );
+                 $metadata = substr( $metadata, 0, AgeWalletOIDCClientPro::METADATA_MAX_BYTES );
+             }
+             $params['metadata'] = $metadata;
+         }
+
          // Construct the full URL.
          // HOOK: Allow developers to modify the authorization request parameters.
          $params = apply_filters('agewallet_auth_request_params', $params);
@@ -507,8 +522,14 @@
          do_action('agewallet_verification_success', $userinfo_data, $token_data);
          // --- End UserInfo Check ---
 
+         // Extract metadata returned by the AgeWallet server (round-tripped from /authorize).
+         $returned_metadata = null;
+         if ( isset( $userinfo_data['metadata'] ) && is_string( $userinfo_data['metadata'] ) && '' !== $userinfo_data['metadata'] ) {
+             $returned_metadata = $userinfo_data['metadata'];
+         }
+
          // --- 8. Proceed to Success Page (after successful verification) ---
-         $this->proceed_to_success($redirect_to, $nonce);
+         $this->proceed_to_success($redirect_to, $nonce, $returned_metadata);
      }
 
 
@@ -574,9 +595,10 @@
             $this->log_debug('[OIDC Handler] Warning: AgeWallet_Gating_Manager class or constant not found, using fallback cookie name.', ['name' => $cookie_name]);
         }
 
-         // Generate Signed Cookie using unique nonce as salt
-         $nonce_salt = isset($transient_data['nonce']) ? $transient_data['nonce'] : '';
-         $cookie_value = AgeWallet_Helpers::instance()->generate_signed_cookie( $nonce_salt );
+         // Generate Signed Cookie using unique nonce as salt, embedding any round-tripped metadata.
+         $nonce_salt    = isset($transient_data['nonce']) ? $transient_data['nonce'] : '';
+         $cookie_meta   = isset($transient_data['metadata']) && is_string($transient_data['metadata']) ? $transient_data['metadata'] : null;
+         $cookie_value  = AgeWallet_Helpers::instance()->generate_signed_cookie( $nonce_salt, $cookie_meta );
 
          $this->log_debug('[OIDC Handler] Setting signed session cookie (expires on browser close).');
 
@@ -668,10 +690,10 @@
 
      /**
       * Helper function to perform the steps needed to redirect to the success page.
-      * passes Nonce for HMAC salt.
+      * passes Nonce for HMAC salt. Metadata (if any) round-trips via the success transient.
       * @since 0.1.0
       */
-     private function proceed_to_success( $redirect_to, $nonce ) {
+     private function proceed_to_success( $redirect_to, $nonce, $metadata = null ) {
          $success_token = AgeWallet_Helpers::instance()->generate_random_hex(16);
          $success_transient_key = self::SUCCESS_TOKEN_PREFIX . $success_token;
 
@@ -680,6 +702,9 @@
              'redirect_to' => $redirect_to,
              'nonce'       => $nonce
          ];
+         if ( is_string( $metadata ) && '' !== $metadata ) {
+             $transient_data['metadata'] = $metadata;
+         }
 
          $set_success_transient = set_transient($success_transient_key, wp_json_encode($transient_data), 2 * MINUTE_IN_SECONDS);
 

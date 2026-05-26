@@ -190,6 +190,16 @@ class AgeWallet_Gating_Manager {
 			return $template;
 		}
 
+		// 4a. Strict-mode safety rail: never substitute a skeleton for dynamic WC pages.
+		// The strict-mode cache stores the cookieless-loopback HTML keyed only by URL,
+		// so caching /checkout/, /cart/, or /my-account/ would either render an empty
+		// cart or leak one customer's HTML to another. Fall back to the normal template
+		// so WC renders the live page; the gate JS still draws the overlay on top.
+		if ( class_exists( 'AgeWallet_WooCommerce' ) && AgeWallet_WooCommerce::is_dynamic_wc_page() ) {
+			$this->log_debug( 'Template Intercept: Bypassing skeleton for dynamic WC page (checkout/cart/account).' );
+			return $template;
+		}
+
 		// 5. Serve the Skeleton (UNCONDITIONALLY).
 		// We specifically removed the cookie check here to ensure Cloudflare always caches the Skeleton.
 		// The hydration logic in gate.js will handle verified users.
@@ -380,6 +390,19 @@ class AgeWallet_Gating_Manager {
 					return apply_filters( 'agewallet_should_gate_request', true, $post_id );
 				}
 			}
+		}
+
+		// 4a. WooCommerce checkout — additive override. Gates the checkout
+		// regardless of block_mode/paths/taxonomy, when the merchant opts in.
+		if (
+			class_exists( 'WooCommerce' )
+			&& class_exists( 'AgeWallet_WooCommerce' )
+			&& AgeWallet_WooCommerce::checkout_gating_enabled()
+			&& ! $post_id // API/post-context callers skip this; this is a request-level rule.
+			&& AgeWallet_WooCommerce::is_checkout_request()
+		) {
+			$this->log_debug( 'Rule Check: WC checkout always-gate enabled and request is checkout.' );
+			return apply_filters( 'agewallet_should_gate_request', true, $post_id );
 		}
 
 		// 4. Check Global Settings.
@@ -639,6 +662,16 @@ class AgeWallet_Gating_Manager {
 		$current_url = AgeWallet_Helpers::instance()->get_current_url();
 		$launch_url  = AgeWallet_Helpers::instance()->get_launch_url();
 		$agree_href  = $launch_url ? add_query_arg( 'redirect_to', urlencode( $current_url ), $launch_url ) : '';
+
+		// Compute metadata here — we have the correct WP context for the gated page.
+		// Sign it so handle_launch() can trust the value despite it riding in a URL.
+		if ( $agree_href && class_exists( 'AgeWallet_Metadata_Builder' ) ) {
+			$md_value = AgeWallet_Metadata_Builder::build();
+			if ( is_string( $md_value ) && '' !== $md_value ) {
+				$signed_md  = AgeWallet_Helpers::instance()->sign_metadata( $md_value );
+				$agree_href = add_query_arg( 'md', urlencode( $signed_md ), $agree_href );
+			}
+		}
 
 		if ( ! $agree_href ) {
 			 $this->log_debug( '[Gating Manager] ERROR: Could not get launch URL for gate HTML.' );

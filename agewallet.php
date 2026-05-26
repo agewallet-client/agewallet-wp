@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AgeWallet OIDC Client
  * Description: Secure AgeWallet OIDC flow for WordPress using transients and client-side gating for cache compatibility.
- * Version:     1.3.1
+ * Version:     1.4.0
  * Author:      AgeWallet LLC
  * Author URI:  https://agewallet.com
  * Text Domain: agewallet
@@ -26,7 +26,7 @@ if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 defined( 'ABSPATH' ) || exit;
 
 // Define essential plugin constants.
-define( 'AGEWALLET_VERSION', '1.3.1' );
+define( 'AGEWALLET_VERSION', '1.4.0' );
 define( 'AGEWALLET_PLUGIN_FILE', __FILE__ );
 define( 'AGEWALLET_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGEWALLET_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -65,6 +65,14 @@ final class AgeWalletOIDCClientPro {
 	// Content Guarding Options
 	const OPT_BLOCK_MODE    = 'aw_oidc_block_mode';
 	const OPT_BLOCKED_PATHS = 'aw_oidc_blocked_paths';
+
+	// Metadata Options
+	const OPT_METADATA_DEFAULT      = 'agewallet_metadata_default';
+	const OPT_WC_GATE_CHECKOUT      = 'agewallet_wc_gate_checkout';
+	const OPT_WC_METADATA_FIELDS    = 'agewallet_wc_checkout_metadata_fields';
+
+	// Metadata length cap (matches server-side acceptance limit)
+	const METADATA_MAX_BYTES = 4096;
 
 	// --- Debugging Option ---
 	/**
@@ -154,6 +162,7 @@ final class AgeWalletOIDCClientPro {
 		$includes_path    = AGEWALLET_PLUGIN_DIR . 'includes/';
 		$files_to_include = array(
 			'class-agewallet-helpers.php',
+			'class-agewallet-metadata-builder.php',
 			'class-agewallet-admin.php',
 			'class-agewallet-oidc-handler.php',
 			'class-agewallet-gating-manager.php',
@@ -281,6 +290,18 @@ final class AgeWalletOIDCClientPro {
 			$this->log_debug( 'AgeWallet_API instantiated.' );
 		} else {
 			$this->log_missing_class( 'AgeWallet_API' );
+		}
+
+		// Instantiate WooCommerce integration only when WC is active.
+		if ( class_exists( 'WooCommerce' ) ) {
+			$wc_file = AGEWALLET_PLUGIN_DIR . 'includes/class-agewallet-woocommerce.php';
+			if ( ! class_exists( 'AgeWallet_WooCommerce' ) && file_exists( $wc_file ) ) {
+				require_once $wc_file;
+			}
+			if ( class_exists( 'AgeWallet_WooCommerce' ) ) {
+				AgeWallet_WooCommerce::instance();
+				$this->log_debug( 'AgeWallet_WooCommerce instantiated.' );
+			}
 		}
 
 		// Initialize the custom plugin updater

@@ -140,11 +140,17 @@ class AgeWallet_Admin {
 		// --- Group 1: Credentials ---
 		register_setting( $this->group_credentials, AgeWalletOIDCClientPro::OPT_CLIENT_ID, array( 'sanitize_callback' => 'sanitize_text_field', 'default' => '' ) );
 		register_setting( $this->group_credentials, AgeWalletOIDCClientPro::OPT_CLIENT_SECRET, array( 'sanitize_callback' => 'sanitize_text_field', 'default' => '' ) );
+		register_setting( $this->group_credentials, AgeWalletOIDCClientPro::OPT_METADATA_DEFAULT, array( 'sanitize_callback' => array( $this, 'sanitize_metadata' ), 'default' => '' ) );
+		register_setting( $this->group_credentials, 'agewallet_metadata_mode', array( 'sanitize_callback' => array( $this, 'sanitize_metadata_mode' ), 'default' => AgeWallet_Metadata_Builder::MODE_STATIC ) );
+		register_setting( $this->group_credentials, 'agewallet_auto_metadata_fields', array( 'sanitize_callback' => array( $this, 'sanitize_auto_metadata_fields' ), 'default' => array() ) );
 
 		add_settings_section( 'aw_sec_creds', __( 'API Configuration', 'agewallet' ), '__return_false', 'agewallet-credentials' );
 		add_settings_field( AgeWalletOIDCClientPro::OPT_CLIENT_ID, __( 'Client ID', 'agewallet' ), array( $this, 'render_text_input' ), 'agewallet-credentials', 'aw_sec_creds', array( 'label_for' => AgeWalletOIDCClientPro::OPT_CLIENT_ID, 'class' => 'regular-text' ) );
 		add_settings_field( AgeWalletOIDCClientPro::OPT_CLIENT_SECRET, __( 'Client Secret', 'agewallet' ), array( $this, 'render_text_input' ), 'agewallet-credentials', 'aw_sec_creds', array( 'label_for' => AgeWalletOIDCClientPro::OPT_CLIENT_SECRET, 'class' => 'regular-text', 'type' => 'password' ) );
 		add_settings_field( 'oidc_redirect_uri', __( 'Redirect URI', 'agewallet' ), array( $this, 'render_redirect_uri' ), 'agewallet-credentials', 'aw_sec_creds' );
+
+		add_settings_section( 'aw_sec_metadata', __( 'Verification Metadata', 'agewallet' ), array( $this, 'render_metadata_section_description' ), 'agewallet-credentials' );
+		add_settings_field( 'agewallet_metadata_mode', __( 'Metadata source', 'agewallet' ), array( $this, 'render_metadata_source_ui' ), 'agewallet-credentials', 'aw_sec_metadata' );
 
 		// --- Group 2: Guarding ---
 		register_setting( $this->group_guarding, 'agewallet_protection_mode', array( 'sanitize_callback' => 'sanitize_text_field', 'default' => 'standard' ) );
@@ -162,6 +168,16 @@ class AgeWallet_Admin {
 		// Taxonomy Rules UI
 		add_settings_section( 'aw_sec_tax_rules', __( 'Taxonomy Rules', 'agewallet' ), '__return_false', 'agewallet-guarding' );
 		add_settings_field( 'agewallet_taxonomy_rules', __( 'Configure Taxonomies', 'agewallet' ), array( $this, 'render_taxonomy_rules_ui' ), 'agewallet-guarding', 'aw_sec_tax_rules' );
+
+		// WooCommerce Rules — only shown when WC is active.
+		if ( class_exists( 'WooCommerce' ) ) {
+			register_setting( $this->group_guarding, AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ), 'default' => 0 ) );
+			register_setting( $this->group_guarding, AgeWalletOIDCClientPro::OPT_WC_METADATA_FIELDS, array( 'sanitize_callback' => array( $this, 'sanitize_wc_metadata_fields' ), 'default' => array( 'cart_hash', 'cart_total', 'currency' ) ) );
+
+			add_settings_section( 'aw_sec_wc', __( 'WooCommerce', 'agewallet' ), array( $this, 'render_wc_section_description' ), 'agewallet-guarding' );
+			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, __( 'Always gate checkout', 'agewallet' ), array( $this, 'render_checkbox' ), 'agewallet-guarding', 'aw_sec_wc', array( 'label_for' => AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, 'label' => __( 'Force verification on the WooCommerce checkout page, regardless of other gating settings.', 'agewallet' ) ) );
+			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_METADATA_FIELDS, __( 'Checkout metadata fields', 'agewallet' ), array( $this, 'render_wc_metadata_fields_ui' ), 'agewallet-guarding', 'aw_sec_wc' );
+		}
 
 		// --- Group 3: Appearance ---
 		register_setting( $this->group_appearance, AgeWalletOIDCClientPro::OPT_LOGO_ID, array( 'sanitize_callback' => array( $this, 'sanitize_positive_int' ), 'default' => 0 ) );
@@ -379,6 +395,155 @@ class AgeWallet_Admin {
 
 	public function render_guarding_section_description() {
 		echo '<p>' . esc_html__( 'Choose how site content should be protected. Users with "edit_posts" capability (e.g., Administrators, Editors) bypass the gate.', 'agewallet' ) . '</p>';
+	}
+
+	public function render_metadata_section_description() {
+		echo '<p>' . esc_html__( 'Attach an opaque value to every AgeWallet verification triggered from this site. The value rides along with the OIDC flow and is stored alongside the verification record for later audit / reporting.', 'agewallet' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Developers: the `agewallet_metadata` filter has the final word on the encoded string. The `agewallet_auto_metadata` filter lets you add/remove keys from the auto-JSON bundle before encoding.', 'agewallet' ) . '</p>';
+	}
+
+	public function render_metadata_source_ui() {
+		$mode = get_option( 'agewallet_metadata_mode', AgeWallet_Metadata_Builder::MODE_STATIC );
+		$static_value = get_option( AgeWalletOIDCClientPro::OPT_METADATA_DEFAULT, '' );
+		$selected_fields = get_option( 'agewallet_auto_metadata_fields', array() );
+		if ( ! is_array( $selected_fields ) ) {
+			$selected_fields = array();
+		}
+		$strict_mode  = AgeWallet_Metadata_Builder::is_strict_mode();
+		$cache_unsafe = array_flip( AgeWallet_Metadata_Builder::cache_unsafe_fields() );
+
+		$field_groups = array(
+			__( 'Post context (singular pages)', 'agewallet' ) => array(
+				'post_id'   => __( 'Post ID', 'agewallet' ),
+				'post_slug' => __( 'Post slug', 'agewallet' ),
+				'post_type' => __( 'Post type', 'agewallet' ),
+			),
+			__( 'User context (logged-in visitors)', 'agewallet' ) => array(
+				'user_id'   => __( 'WordPress user ID', 'agewallet' ),
+				'user_role' => __( 'Primary role', 'agewallet' ),
+			),
+			__( 'Request context', 'agewallet' ) => array(
+				'request_path'  => __( 'Request path', 'agewallet' ),
+				'referrer_host' => __( 'Referrer host', 'agewallet' ),
+			),
+			__( 'Marketing context (UTM query params)', 'agewallet' ) => array(
+				'utm_source'   => __( 'utm_source', 'agewallet' ),
+				'utm_campaign' => __( 'utm_campaign', 'agewallet' ),
+			),
+			__( 'Archive / search context', 'agewallet' ) => array(
+				'page_type'         => __( 'page_type (singular/category/tag/search/home/...)', 'agewallet' ),
+				'term_id'           => __( 'term_id (category/tag/taxonomy archives)', 'agewallet' ),
+				'term_slug'         => __( 'term_slug', 'agewallet' ),
+				'term_taxonomy'     => __( 'term_taxonomy', 'agewallet' ),
+				'search_query'      => __( 'search_query (on-site ?s= search)', 'agewallet' ),
+				'archive_post_type' => __( 'archive_post_type (post-type archives)', 'agewallet' ),
+			),
+		);
+
+		echo '<fieldset class="aw-metadata-source">';
+
+		// Mode radios
+		$modes = array(
+			AgeWallet_Metadata_Builder::MODE_OFF    => __( 'Off — no metadata attached', 'agewallet' ),
+			AgeWallet_Metadata_Builder::MODE_STATIC => __( 'Static text', 'agewallet' ),
+			AgeWallet_Metadata_Builder::MODE_AUTO   => __( 'Auto JSON of selected fields', 'agewallet' ),
+		);
+		foreach ( $modes as $value => $label ) {
+			printf(
+				'<label style="display:block; margin-bottom:6px;"><input type="radio" name="agewallet_metadata_mode" value="%1$s" %2$s class="aw-md-mode" /> %3$s</label>',
+				esc_attr( $value ),
+				checked( $value, $mode, false ),
+				esc_html( $label )
+			);
+		}
+
+		// Static-text sub-block
+		echo '<div class="aw-md-block aw-md-block-static" style="margin-left:24px; margin-top:8px;' . ( AgeWallet_Metadata_Builder::MODE_STATIC === $mode ? '' : ' display:none;' ) . '">';
+		printf(
+			'<input type="text" id="%1$s" name="%1$s" value="%2$s" class="regular-text" />',
+			esc_attr( AgeWalletOIDCClientPro::OPT_METADATA_DEFAULT ),
+			esc_attr( $static_value )
+		);
+		echo '<p class="description">' . esc_html__( 'Sent verbatim with every verification. Max 4096 bytes.', 'agewallet' ) . '</p>';
+		echo '</div>';
+
+		// Auto-JSON sub-block
+		echo '<div class="aw-md-block aw-md-block-auto" style="margin-left:24px; margin-top:8px;' . ( AgeWallet_Metadata_Builder::MODE_AUTO === $mode ? '' : ' display:none;' ) . '">';
+		foreach ( $field_groups as $group_label => $fields ) {
+			echo '<p style="margin:8px 0 4px; font-weight:600;">' . esc_html( $group_label ) . '</p>';
+			foreach ( $fields as $key => $label ) {
+				$is_checked  = in_array( $key, $selected_fields, true );
+				$is_disabled = $strict_mode && isset( $cache_unsafe[ $key ] );
+				$style       = $is_disabled ? 'display:block; margin-left:8px; opacity:0.5;' : 'display:block; margin-left:8px;';
+				printf(
+					'<label style="%5$s"><input type="checkbox" name="agewallet_auto_metadata_fields[]" value="%1$s" %2$s %4$s/> %3$s</label>',
+					esc_attr( $key ),
+					$is_disabled ? '' : checked( true, $is_checked, false ),
+					esc_html( $label ),
+					$is_disabled ? 'disabled="disabled" ' : '',
+					esc_attr( $style )
+				);
+			}
+		}
+		echo '<p class="description">' . esc_html__( 'Selected fields are JSON-encoded. Keys with no value on a given request (e.g., Post ID on a category page) are omitted automatically.', 'agewallet' ) . '</p>';
+		if ( $strict_mode ) {
+			echo '<p class="description" style="color:#996800;"><strong>' . esc_html__( 'Strict mode is active:', 'agewallet' ) . '</strong> ' . esc_html__( 'per-visitor fields (user, marketing, referrer) are disabled because the cached skeleton can\'t carry per-request context.', 'agewallet' ) . '</p>';
+		}
+		echo '</div>';
+
+		echo '</fieldset>';
+
+		// Inline JS to toggle sub-blocks based on selected radio.
+		?>
+		<script>
+		(function(){
+			var radios = document.querySelectorAll('input.aw-md-mode');
+			function toggle(){
+				var v = document.querySelector('input.aw-md-mode:checked');
+				v = v ? v.value : '';
+				document.querySelectorAll('.aw-md-block').forEach(function(el){ el.style.display = 'none'; });
+				var target = document.querySelector('.aw-md-block-' + v);
+				if (target) target.style.display = '';
+			}
+			radios.forEach(function(r){ r.addEventListener('change', toggle); });
+			toggle();
+		})();
+		</script>
+		<?php
+	}
+
+	public function render_wc_section_description() {
+		echo '<p>' . esc_html__( 'Optional rule for the WooCommerce checkout page. When enabled, customers must complete age verification before they can pay. Per-checkout context (cart hash, total, etc.) is attached to the verification as metadata.', 'agewallet' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Use the `agewallet_wc_checkout_metadata` filter to fully customise the metadata payload from code.', 'agewallet' ) . '</p>';
+	}
+
+	public function render_wc_metadata_fields_ui() {
+		$option_name = AgeWalletOIDCClientPro::OPT_WC_METADATA_FIELDS;
+		$selected    = get_option( $option_name, array( 'cart_hash', 'cart_total', 'currency' ) );
+		if ( ! is_array( $selected ) ) {
+			$selected = array();
+		}
+		$choices = array(
+			'cart_hash'       => __( 'Cart hash (identifies the exact cart state)', 'agewallet' ),
+			'cart_total'      => __( 'Cart total', 'agewallet' ),
+			'currency'        => __( 'Currency code', 'agewallet' ),
+			'customer_id'     => __( 'WordPress user ID', 'agewallet' ),
+			'billing_country' => __( 'Billing country (if available)', 'agewallet' ),
+			'line_item_count' => __( 'Number of line items', 'agewallet' ),
+		);
+		echo '<fieldset>';
+		foreach ( $choices as $key => $label ) {
+			$is_checked = in_array( $key, $selected, true );
+			printf(
+				'<label style="display:block; margin-bottom:4px;"><input type="checkbox" name="%1$s[]" value="%2$s" %3$s /> %4$s</label>',
+				esc_attr( $option_name ),
+				esc_attr( $key ),
+				checked( true, $is_checked, false ),
+				esc_html( $label )
+			);
+		}
+		echo '</fieldset>';
+		echo '<p class="description">' . esc_html__( 'Fields included in the JSON metadata sent with each checkout verification.', 'agewallet' ) . '</p>';
 	}
 
     // Cache Section Description (Contains the Purge Button)
@@ -724,6 +889,44 @@ class AgeWallet_Admin {
 
 	public function sanitize_positive_int( $input ) {
 		return absint( $input );
+	}
+
+	public function sanitize_metadata( $input ) {
+		$value = is_scalar( $input ) ? (string) $input : '';
+		$value = wp_strip_all_tags( $value );
+		if ( strlen( $value ) > AgeWalletOIDCClientPro::METADATA_MAX_BYTES ) {
+			$value = substr( $value, 0, AgeWalletOIDCClientPro::METADATA_MAX_BYTES );
+		}
+		return $value;
+	}
+
+	public function sanitize_wc_metadata_fields( $input ) {
+		$allowed = array( 'cart_hash', 'cart_total', 'currency', 'customer_id', 'billing_country', 'line_item_count' );
+		if ( ! is_array( $input ) ) {
+			return array();
+		}
+		return array_values( array_intersect( $allowed, array_map( 'sanitize_key', $input ) ) );
+	}
+
+	public function sanitize_metadata_mode( $input ) {
+		$allowed = AgeWallet_Metadata_Builder::allowed_modes();
+		return in_array( $input, $allowed, true ) ? $input : AgeWallet_Metadata_Builder::MODE_STATIC;
+	}
+
+	public function sanitize_auto_metadata_fields( $input ) {
+		if ( ! is_array( $input ) ) {
+			return array();
+		}
+		$allowed   = AgeWallet_Metadata_Builder::allowed_auto_fields();
+		$sanitized = array_values( array_intersect( $allowed, array_map( 'sanitize_key', $input ) ) );
+
+		// In strict mode, cache-unsafe keys are persistently stripped — the option store stays clean
+		// even if a stale submission tried to include them.
+		if ( AgeWallet_Metadata_Builder::is_strict_mode() ) {
+			$sanitized = array_values( array_diff( $sanitized, AgeWallet_Metadata_Builder::cache_unsafe_fields() ) );
+		}
+
+		return $sanitized;
 	}
 
 	public function sanitize_wysiwyg( $input ) {

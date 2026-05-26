@@ -217,10 +217,11 @@
         /**
          * Generates a signed cookie value.
          * Format: base64(json_payload) . signature
-         * @param string $salt Optional unique salt (e.g., nonce).
+         * @param string      $salt     Optional unique salt (e.g., nonce).
+         * @param string|null $metadata Optional opaque per-verification metadata to embed.
          * @return string Signed cookie string.
          */
-        public function generate_signed_cookie( $salt = '' ) {
+        public function generate_signed_cookie( $salt = '', $metadata = null ) {
             $secret = $this->ensure_hmac_secret();
             if ( empty( $salt ) ) {
                 $salt = $this->generate_random_hex(8);
@@ -235,6 +236,10 @@
                 'exp'    => time() + ( DAY_IN_SECONDS ),
             );
 
+            if ( is_string( $metadata ) && '' !== $metadata ) {
+                $payload['metadata'] = $metadata;
+            }
+
             // Hook to add extra data
             $payload = apply_filters( 'agewallet_cookie_payload', $payload );
 
@@ -242,6 +247,75 @@
             $signature = hash_hmac( 'sha256', $encoded_payload, $secret );
 
             return $encoded_payload . '.' . $signature;
+        }
+
+        /**
+         * Sign an opaque metadata string for safe round-trip through the launch URL.
+         * Format: base64(value).signature
+         *
+         * @since 1.4.0
+         * @param string $value
+         * @return string
+         */
+        public function sign_metadata( $value ) {
+            $secret  = $this->ensure_hmac_secret();
+            $encoded = base64_encode( (string) $value );
+            $sig     = hash_hmac( 'sha256', $encoded, $secret );
+            return $encoded . '.' . $sig;
+        }
+
+        /**
+         * Verify a signed metadata string. Returns the original value or null on bad signature.
+         *
+         * @since 1.4.0
+         * @param string $signed
+         * @return string|null
+         */
+        public function verify_signed_metadata( $signed ) {
+            if ( ! is_string( $signed ) || strpos( $signed, '.' ) === false ) {
+                return null;
+            }
+            list( $encoded, $sig ) = explode( '.', $signed, 2 );
+            $secret   = $this->ensure_hmac_secret();
+            $expected = hash_hmac( 'sha256', $encoded, $secret );
+            if ( ! hash_equals( $expected, $sig ) ) {
+                return null;
+            }
+            $decoded = base64_decode( $encoded, true );
+            return ( false === $decoded ) ? null : $decoded;
+        }
+
+        /**
+         * Returns the parsed payload of the verified cookie, or null if missing/invalid/expired.
+         * Verifies the HMAC signature and expiration before returning.
+         *
+         * @since 1.4.0
+         * @return array|null
+         */
+        public function get_verified_cookie_payload() {
+            $cookie_name  = defined( 'AgeWallet_Gating_Manager::VERIFIED_COOKIE_NAME' )
+                ? AgeWallet_Gating_Manager::VERIFIED_COOKIE_NAME
+                : 'agewallet_verified';
+            $cookie_value = $_COOKIE[ $cookie_name ] ?? '';
+
+            if ( empty( $cookie_value ) || strpos( $cookie_value, '.' ) === false ) {
+                return null;
+            }
+
+            list( $encoded_payload, $signature ) = explode( '.', $cookie_value, 2 );
+
+            $secret = $this->ensure_hmac_secret();
+            $check_signature = hash_hmac( 'sha256', $encoded_payload, $secret );
+            if ( ! hash_equals( $signature, $check_signature ) ) {
+                return null;
+            }
+
+            $payload = json_decode( base64_decode( $encoded_payload ), true );
+            if ( ! is_array( $payload ) || ! isset( $payload['exp'] ) || time() > $payload['exp'] ) {
+                return null;
+            }
+
+            return $payload;
         }
 
         /**
@@ -371,3 +445,20 @@
         public function __wakeup() { _doing_it_wrong(__FUNCTION__, esc_html__('Unserializing forbidden.', 'agewallet'), '0.1.0'); }
 
     } // End class AgeWallet_Helpers
+
+    if ( ! function_exists( 'agewallet_get_metadata' ) ) {
+        /**
+         * Returns the metadata string attached to the current verification, or null if none.
+         * Reads the signed verified cookie (validating signature + expiry).
+         *
+         * @since 1.4.0
+         * @return string|null
+         */
+        function agewallet_get_metadata() {
+            $payload = AgeWallet_Helpers::instance()->get_verified_cookie_payload();
+            if ( ! is_array( $payload ) || ! isset( $payload['metadata'] ) || ! is_string( $payload['metadata'] ) ) {
+                return null;
+            }
+            return $payload['metadata'];
+        }
+    }

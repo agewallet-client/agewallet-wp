@@ -176,9 +176,10 @@
         var bodyClassPending = data.bodyClassPending || 'agewallet-gated-pending';
 
         // Strict Mode Data
-        var isStrictMode = data.isStrictMode || false;
-        var apiEndpoint  = data.apiEndpoint || '';
-        var launchUrl    = data.launchUrl || '';
+        var isStrictMode   = data.isStrictMode || false;
+        var apiEndpoint    = data.apiEndpoint || '';
+        var launchUrl      = data.launchUrl || '';
+        var signedMetadata = data.signedMetadata || '';
 
         // Check verification status
         var userIsVerified = isVerified(cookieName);
@@ -229,6 +230,9 @@
                         var currentUrl = window.location.href;
                         var separator = launchUrl.indexOf('?') !== -1 ? '&' : '?';
                         var finalUrl = launchUrl + separator + 'redirect_to=' + encodeURIComponent(currentUrl);
+                        if (signedMetadata) {
+                            finalUrl += '&md=' + encodeURIComponent(signedMetadata);
+                        }
                         agreeBtn.setAttribute('data-redirect-url', finalUrl);
                     }
                 } else {
