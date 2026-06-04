@@ -39,10 +39,20 @@ if ( ! class_exists( 'AgeWallet_WooCommerce' ) ) {
 
 		/**
 		 * True if the current request is the WC checkout page.
-		 * Uses `is_checkout()` which is safe to call once WC has booted.
+		 *
+		 * Compares the current queried page against whatever WC has configured
+		 * as its checkout page in Settings → Advanced → Page setup. Reading
+		 * from WC's own source-of-truth (the `woocommerce_checkout_page_id`
+		 * option) avoids the edge cases where `is_checkout()` silently returns
+		 * false (Blocks-based checkout, plugin shims hooking
+		 * `woocommerce_is_checkout`, endpoint-detection drift, etc.).
 		 */
 		public static function is_checkout_request() {
-			return function_exists( 'is_checkout' ) && is_checkout();
+			if ( ! function_exists( 'wc_get_page_id' ) || ! function_exists( 'is_page' ) ) {
+				return false;
+			}
+			$checkout_id = wc_get_page_id( 'checkout' );
+			return $checkout_id > 0 && is_page( $checkout_id );
 		}
 
 		/**
