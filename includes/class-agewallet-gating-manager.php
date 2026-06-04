@@ -673,6 +673,14 @@ class AgeWallet_Gating_Manager {
 			}
 		}
 
+		// Mark checkout-origin so handle_launch() knows to attach WC cart-context
+		// metadata at click-time. The marker rides as a separate signed query param
+		// so it stays out of the final metadata payload stored against the verification.
+		if ( $agree_href && class_exists( 'AgeWallet_WooCommerce' ) && AgeWallet_WooCommerce::is_checkout_request() ) {
+			$signed_origin = AgeWallet_Helpers::instance()->sign_metadata( 'checkout' );
+			$agree_href    = add_query_arg( 'aw_o', urlencode( $signed_origin ), $agree_href );
+		}
+
 		if ( ! $agree_href ) {
 			 $this->log_debug( '[Gating Manager] ERROR: Could not get launch URL for gate HTML.' );
 			 return '<p style="color:red;">Error: Could not determine launch URL.</p>';

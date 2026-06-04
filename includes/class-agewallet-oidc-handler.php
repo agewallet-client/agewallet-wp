@@ -22,6 +22,28 @@
      private static $instance = null;
 
      /**
+      * Origin marker for the current /agewallet/launch request, set inside
+      * handle_launch() from the signed `aw_o` query param. Filter callbacks on
+      * `agewallet_metadata` can read this via get_request_origin() to decide
+      * whether the verification originated from a specific context (e.g., 'checkout').
+      *
+      * Null when no signed origin was present on the launch URL.
+      *
+      * @var string|null
+      */
+     private static $request_origin = null;
+
+     /**
+      * Returns the origin marker for the current verify-click request.
+      * Set by handle_launch() from the signed `aw_o` query param.
+      *
+      * @return string|null
+      */
+     public static function get_request_origin() {
+         return self::$request_origin;
+     }
+
+     /**
       * Transient prefix for OIDC state data. Used to store PKCE verifier and redirect URL.
       * @since 0.1.0
       * @var string
@@ -334,6 +356,15 @@
          // Return a string (max 4096 bytes) or null/empty to skip.
          $signed_md   = isset( $_GET['md'] ) ? wp_unslash( $_GET['md'] ) : '';
          $base_value  = $signed_md ? AgeWallet_Helpers::instance()->verify_signed_metadata( $signed_md ) : null;
+
+         // Decode the signed origin marker (if present) so filter callbacks can read
+         // it via self::get_request_origin() to decide whether to attach context-specific
+         // metadata (e.g., AgeWallet_WooCommerce::inject_checkout_metadata fires only
+         // when this is 'checkout').
+         $signed_origin = isset( $_GET['aw_o'] ) ? wp_unslash( $_GET['aw_o'] ) : '';
+         $origin        = $signed_origin ? AgeWallet_Helpers::instance()->verify_signed_metadata( $signed_origin ) : '';
+         self::$request_origin = ( is_string( $origin ) && '' !== $origin ) ? $origin : null;
+
          $metadata    = apply_filters( 'agewallet_metadata', $base_value );
          if ( is_string( $metadata ) && '' !== $metadata ) {
              if ( strlen( $metadata ) > AgeWalletOIDCClientPro::METADATA_MAX_BYTES ) {

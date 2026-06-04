@@ -152,7 +152,14 @@ if ( ! class_exists( 'AgeWallet_WooCommerce' ) ) {
 			if ( ! self::checkout_gating_enabled() ) {
 				return $existing;
 			}
-			if ( ! self::is_checkout_request() ) {
+			// Only fire when the verification originated from the WC checkout page.
+			// AgeWallet_OIDC_Handler sets the origin marker from the signed `aw_o`
+			// query param on /agewallet/launch — that marker is added by the gating
+			// manager when rendering the gate on a page where is_checkout_request()
+			// is true. Cannot use is_checkout_request() directly here because we're
+			// inside /agewallet/launch at this point, not on the checkout page.
+			if ( ! class_exists( 'AgeWallet_OIDC_Handler' )
+				|| 'checkout' !== AgeWallet_OIDC_Handler::get_request_origin() ) {
 				return $existing;
 			}
 
