@@ -398,7 +398,7 @@ class AgeWallet_Gating_Manager {
 			class_exists( 'WooCommerce' )
 			&& class_exists( 'AgeWallet_WooCommerce' )
 			&& AgeWallet_WooCommerce::checkout_gating_enabled()
-			&& ! $post_id // API/post-context callers skip this; this is a request-level rule.
+			&& is_null( $context_post_id ) // API/post-context callers skip this; this is a request-level rule.
 			&& AgeWallet_WooCommerce::is_checkout_request()
 		) {
 			$this->log_debug( 'Rule Check: WC checkout always-gate enabled and request is checkout.' );
