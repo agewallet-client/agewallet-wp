@@ -442,6 +442,15 @@ class AgeWallet_Admin {
 
 		echo '<fieldset class="aw-metadata-source">';
 
+		// Cache-purge notice placed ABOVE the radios so users see it while making
+		// the choice, not buried at the bottom by the Save button.
+		echo '<div class="notice notice-info inline" style="margin:0 0 12px 0; padding:8px 12px;">';
+		echo '<p style="margin:0;">' . esc_html__(
+			'Changing any setting below will automatically purge the gate cache so the new value takes effect on the next visitor — no manual cache flush needed.',
+			'agewallet'
+		) . '</p>';
+		echo '</div>';
+
 		// Mode radios
 		$modes = array(
 			AgeWallet_Metadata_Builder::MODE_OFF    => __( 'Off — no metadata attached', 'agewallet' ),
