@@ -409,34 +409,36 @@ class AgeWallet_Admin {
 		if ( ! is_array( $selected_fields ) ) {
 			$selected_fields = array();
 		}
-		$strict_mode  = AgeWallet_Metadata_Builder::is_strict_mode();
-		$cache_unsafe = array_flip( AgeWallet_Metadata_Builder::cache_unsafe_fields() );
 
 		$field_groups = array(
 			__( 'Post context (singular pages)', 'agewallet' ) => array(
-				'post_id'   => __( 'Post ID', 'agewallet' ),
-				'post_slug' => __( 'Post slug', 'agewallet' ),
-				'post_type' => __( 'Post type', 'agewallet' ),
+				'fields' => array(
+					'post_id'   => __( 'Post ID', 'agewallet' ),
+					'post_slug' => __( 'Post slug', 'agewallet' ),
+					'post_type' => __( 'Post type', 'agewallet' ),
+				),
 			),
-			__( 'User context (logged-in visitors)', 'agewallet' ) => array(
-				'user_id'   => __( 'WordPress user ID', 'agewallet' ),
-				'user_role' => __( 'Primary role', 'agewallet' ),
+			__( 'User context', 'agewallet' ) => array(
+				'description' => __( 'These fields only populate when the visitor is signed in to a WordPress user account at click time. For anonymous visitors they are omitted from the JSON.', 'agewallet' ),
+				'fields'      => array(
+					'user_id'   => __( 'WordPress user ID', 'agewallet' ),
+					'user_role' => __( 'Primary role', 'agewallet' ),
+				),
 			),
 			__( 'Request context', 'agewallet' ) => array(
-				'request_path'  => __( 'Request path', 'agewallet' ),
-				'referrer_host' => __( 'Referrer host', 'agewallet' ),
-			),
-			__( 'Marketing context (UTM query params)', 'agewallet' ) => array(
-				'utm_source'   => __( 'utm_source', 'agewallet' ),
-				'utm_campaign' => __( 'utm_campaign', 'agewallet' ),
+				'fields' => array(
+					'request_path' => __( 'Request path', 'agewallet' ),
+				),
 			),
 			__( 'Archive / search context', 'agewallet' ) => array(
-				'page_type'         => __( 'page_type (singular/category/tag/search/home/...)', 'agewallet' ),
-				'term_id'           => __( 'term_id (category/tag/taxonomy archives)', 'agewallet' ),
-				'term_slug'         => __( 'term_slug', 'agewallet' ),
-				'term_taxonomy'     => __( 'term_taxonomy', 'agewallet' ),
-				'search_query'      => __( 'search_query (on-site ?s= search)', 'agewallet' ),
-				'archive_post_type' => __( 'archive_post_type (post-type archives)', 'agewallet' ),
+				'fields' => array(
+					'page_type'         => __( 'page_type (singular/category/tag/search/home/...)', 'agewallet' ),
+					'term_id'           => __( 'term_id (category/tag/taxonomy archives)', 'agewallet' ),
+					'term_slug'         => __( 'term_slug', 'agewallet' ),
+					'term_taxonomy'     => __( 'term_taxonomy', 'agewallet' ),
+					'search_query'      => __( 'search_query (on-site ?s= search)', 'agewallet' ),
+					'archive_post_type' => __( 'archive_post_type (post-type archives)', 'agewallet' ),
+				),
 			),
 		);
 
@@ -444,7 +446,11 @@ class AgeWallet_Admin {
 
 		echo '<div class="notice notice-info inline" style="margin:0 0 12px 0; padding:8px 12px;">';
 		echo '<p style="margin:0;">' . esc_html__(
-			'Changing any setting below will automatically purge the cache so the new value takes effect on the next visitor — no manual cache flush needed.',
+			'Changing any setting below will automatically purge AgeWallet\'s own cache so the new value takes effect on the next visitor.',
+			'agewallet'
+		) . '</p>';
+		echo '<p style="margin:6px 0 0;">' . esc_html__(
+			'If your site uses an external page cache (WP Engine, Cloudflare, W3 Total Cache, WP Rocket, LiteSpeed, etc.), you\'ll also need to purge that separately — the auto-purge above only clears AgeWallet\'s own cache.',
 			'agewallet'
 		) . '</p>';
 		echo '</div>';
@@ -476,26 +482,22 @@ class AgeWallet_Admin {
 
 		// Auto-JSON sub-block
 		echo '<div class="aw-md-block aw-md-block-auto" style="margin-left:24px; margin-top:8px;' . ( AgeWallet_Metadata_Builder::MODE_AUTO === $mode ? '' : ' display:none;' ) . '">';
-		foreach ( $field_groups as $group_label => $fields ) {
+		foreach ( $field_groups as $group_label => $group_data ) {
 			echo '<p style="margin:8px 0 4px; font-weight:600;">' . esc_html( $group_label ) . '</p>';
-			foreach ( $fields as $key => $label ) {
-				$is_checked  = in_array( $key, $selected_fields, true );
-				$is_disabled = $strict_mode && isset( $cache_unsafe[ $key ] );
-				$style       = $is_disabled ? 'display:block; margin-left:8px; opacity:0.5;' : 'display:block; margin-left:8px;';
+			if ( ! empty( $group_data['description'] ) ) {
+				echo '<p class="description" style="margin:0 0 6px 0;">' . esc_html( $group_data['description'] ) . '</p>';
+			}
+			foreach ( $group_data['fields'] as $key => $label ) {
+				$is_checked = in_array( $key, $selected_fields, true );
 				printf(
-					'<label style="%5$s"><input type="checkbox" name="agewallet_auto_metadata_fields[]" value="%1$s" %2$s %4$s/> %3$s</label>',
+					'<label style="display:block; margin-left:8px;"><input type="checkbox" name="agewallet_auto_metadata_fields[]" value="%1$s" %2$s/> %3$s</label>',
 					esc_attr( $key ),
-					$is_disabled ? '' : checked( true, $is_checked, false ),
-					esc_html( $label ),
-					$is_disabled ? 'disabled="disabled" ' : '',
-					esc_attr( $style )
+					checked( true, $is_checked, false ),
+					esc_html( $label )
 				);
 			}
 		}
 		echo '<p class="description">' . esc_html__( 'Selected fields are JSON-encoded. Keys with no value on a given request (e.g., Post ID on a category page) are omitted automatically.', 'agewallet' ) . '</p>';
-		if ( $strict_mode ) {
-			echo '<p class="description" style="color:#996800;"><strong>' . esc_html__( 'Strict mode is active:', 'agewallet' ) . '</strong> ' . esc_html__( 'per-visitor fields (user, marketing, referrer) are disabled because the cached skeleton can\'t carry per-request context.', 'agewallet' ) . '</p>';
-		}
 		echo '</div>';
 
 		echo '</fieldset>';
@@ -924,16 +926,8 @@ class AgeWallet_Admin {
 		if ( ! is_array( $input ) ) {
 			return array();
 		}
-		$allowed   = AgeWallet_Metadata_Builder::allowed_auto_fields();
-		$sanitized = array_values( array_intersect( $allowed, array_map( 'sanitize_key', $input ) ) );
-
-		// In strict mode, cache-unsafe keys are persistently stripped — the option store stays clean
-		// even if a stale submission tried to include them.
-		if ( AgeWallet_Metadata_Builder::is_strict_mode() ) {
-			$sanitized = array_values( array_diff( $sanitized, AgeWallet_Metadata_Builder::cache_unsafe_fields() ) );
-		}
-
-		return $sanitized;
+		$allowed = AgeWallet_Metadata_Builder::allowed_auto_fields();
+		return array_values( array_intersect( $allowed, array_map( 'sanitize_key', $input ) ) );
 	}
 
 	public function sanitize_wysiwyg( $input ) {

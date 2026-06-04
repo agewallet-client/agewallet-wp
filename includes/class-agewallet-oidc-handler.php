@@ -67,7 +67,84 @@
          // Hook to allow adding AgeWallet domain for safe redirects
          add_filter( 'wp_redirect_allowed_hosts', array( $this, 'add_allowed_redirect_hosts' ) );
 
+         // Resolve per-visitor metadata fields (user_id, user_role) at click-time.
+         // This filter fires inside handle_launch() — POST + nocache_headers() — so
+         // each visitor's true identity is captured even when the gated page itself
+         // is served from an external page cache (WP Engine, Cloudflare, W3TC, etc.).
+         add_filter( 'agewallet_metadata', array( $this, 'merge_per_visitor_fields' ), 10, 1 );
+
          $this->log_debug('[OIDC Handler] __construct finished, hooks added.');
+     }
+
+     /**
+      * Resolve per-visitor metadata fields at verify-click time and merge them
+      * into the existing metadata payload.
+      *
+      * Page-context fields (post_id, request_path, term_*, etc.) are baked into
+      * the signed md= URL at gate-render time, where they're safe to cache because
+      * they're identical for every visitor to the same URL. Per-visitor fields
+      * (user_id, user_role) bypass that path and resolve here instead so they
+      * reflect the actual visitor — not whoever first cached the page.
+      *
+      * Composes with developer hooks on `agewallet_metadata`: we run at default
+      * priority 10. Developer hooks at higher priority see our merged output and
+      * can override or extend further.
+      *
+      * @param string|null $existing The metadata string built so far (from the
+      *                              signed md= URL — JSON for auto mode, plain
+      *                              text for static mode, or null).
+      * @return string|null
+      */
+     public function merge_per_visitor_fields( $existing ) {
+         // Only act in auto-JSON mode. Static-text metadata is opaque to us; we
+         // don't presume to munge a user's literal string.
+         if ( 'auto' !== get_option( 'agewallet_metadata_mode', 'static' ) ) {
+             return $existing;
+         }
+
+         $selected = get_option( 'agewallet_auto_metadata_fields', array() );
+         if ( ! is_array( $selected ) ) {
+             return $existing;
+         }
+
+         $additions = array();
+
+         if ( in_array( 'user_id', $selected, true ) ) {
+             $uid = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+             if ( $uid > 0 ) {
+                 $additions['user_id'] = $uid;
+             }
+         }
+
+         if ( in_array( 'user_role', $selected, true ) ) {
+             if ( function_exists( 'is_user_logged_in' ) && is_user_logged_in() ) {
+                 $user = wp_get_current_user();
+                 if ( ! empty( $user->roles ) ) {
+                     $additions['user_role'] = (string) reset( $user->roles );
+                 }
+             }
+         }
+
+         if ( empty( $additions ) ) {
+             return $existing;
+         }
+
+         // Merge into existing JSON (or seed a new one if there was none).
+         $base = array();
+         if ( is_string( $existing ) && '' !== $existing ) {
+             $decoded = json_decode( $existing, true );
+             if ( is_array( $decoded ) ) {
+                 $base = $decoded;
+             } else {
+                 // Non-JSON existing value (shouldn't happen in auto mode, but be defensive).
+                 return $existing;
+             }
+         }
+
+         $merged = array_merge( $base, $additions );
+         $json   = wp_json_encode( $merged );
+
+         return is_string( $json ) ? $json : $existing;
      }
 
      // --- OIDC Endpoint Handling ---
@@ -234,10 +311,27 @@
              'nonce' => $nonce, // Include nonce in request
          );
 
-         // Read metadata from the signed `md` query param (computed at gate-render time
-         // where WordPress has the correct page context). On bad signature → null.
-         // The agewallet_metadata filter still has final-word override.
-         // HOOK: agewallet_metadata - return a string (max 4096 bytes) or null/empty to skip.
+         // Read metadata from the signed `md` query param (computed at gate-render
+         // time where WordPress has the correct page context). On bad signature → null.
+         //
+         // HOOK: `agewallet_metadata`
+         //
+         // This filter fires AT VERIFY-CLICK TIME, not at gate-render time, so the
+         // response is reliably cache-safe (POST to /agewallet/launch +
+         // nocache_headers() earlier in this method). It's the right place to add
+         // PER-VISITOR data (user identity, session-scoped values, anything that
+         // must reflect the actual clicker rather than whoever first cached the page).
+         //
+         // For PER-URL/page-context data instead, use `agewallet_auto_metadata`
+         // (in Metadata_Builder::build) — that one fires at gate-render time and
+         // is correct for values that are identical for every visitor to the URL.
+         //
+         // Internal subscriber: AgeWallet_OIDC_Handler::merge_per_visitor_fields()
+         // hooks here at priority 10 to resolve user_id / user_role if they're
+         // ticked in the auto-JSON options. Developer hooks at any priority compose
+         // cleanly with that.
+         //
+         // Return a string (max 4096 bytes) or null/empty to skip.
          $signed_md   = isset( $_GET['md'] ) ? wp_unslash( $_GET['md'] ) : '';
          $base_value  = $signed_md ? AgeWallet_Helpers::instance()->verify_signed_metadata( $signed_md ) : null;
          $metadata    = apply_filters( 'agewallet_metadata', $base_value );

@@ -3,8 +3,9 @@
  * Builds the metadata string attached to each AgeWallet verification.
  *
  * Reads the configured mode (off / static / auto) and either returns the
- * user's literal string, an auto-composed JSON bundle of selected request
- * context fields, or null (no metadata).
+ * user's literal string, an auto-composed JSON bundle of selected page-context
+ * fields, or null. Per-visitor fields (user_id, user_role) are resolved later
+ * by AgeWallet_OIDC_Handler at verify-click time.
  *
  * @package AgeWalletOIDCClient
  * @since   1.4.0
@@ -25,16 +26,9 @@ if ( ! class_exists( 'AgeWallet_Metadata_Builder' ) ) {
 		}
 
 		/**
-		 * Field keys that cannot survive the strict-mode page cache, because their
-		 * value is per-visitor or per-request rather than per-URL. Stripped at runtime
-		 * (and on save) when strict mode is active.
-		 */
-		public static function cache_unsafe_fields() {
-			return array( 'user_id', 'user_role', 'utm_source', 'utm_campaign', 'referrer_host' );
-		}
-
-		/**
-		 * True when the configured protection mode is strict (i.e., pages are cached).
+		 * True when the configured protection mode is strict (i.e., AgeWallet's own
+		 * HTML cache is in play). Kept as a public helper for callers that still
+		 * need to know whether strict mode is active.
 		 */
 		public static function is_strict_mode() {
 			return 'strict' === get_option( 'agewallet_protection_mode', 'standard' );
@@ -42,7 +36,6 @@ if ( ! class_exists( 'AgeWallet_Metadata_Builder' ) ) {
 
 		/**
 		 * Allowed field keys for the auto-JSON bundle, grouped by UI section.
-		 * The order here drives the admin UI layout.
 		 */
 		public static function allowed_auto_fields() {
 			return array(
@@ -50,16 +43,12 @@ if ( ! class_exists( 'AgeWallet_Metadata_Builder' ) ) {
 				'post_id',
 				'post_slug',
 				'post_type',
-				// User context
+				// User context (resolved at click-time in OIDC_Handler)
 				'user_id',
 				'user_role',
 				// Request context
 				'request_path',
-				'referrer_host',
-				// Marketing context
-				'utm_source',
-				'utm_campaign',
-				// Archive context
+				// Archive / search context
 				'page_type',
 				'term_id',
 				'term_slug',
@@ -92,18 +81,16 @@ if ( ! class_exists( 'AgeWallet_Metadata_Builder' ) ) {
 					return null;
 				}
 
-				// Strict mode: drop cache-unsafe keys at runtime, even if a stale option contains them.
-				if ( self::is_strict_mode() ) {
-					$selected = array_values( array_diff( $selected, self::cache_unsafe_fields() ) );
-					if ( empty( $selected ) ) {
-						return null;
-					}
-				}
-
 				$fields = self::collect_fields( $selected );
 
 				/**
 				 * Filter the auto-composed field array before JSON-encoding.
+				 *
+				 * Fires at gate-render time. Whatever you add here is baked into
+				 * the signed md= URL and will be cached if a page-cache layer is
+				 * in front of WordPress. ONLY add per-URL/page-context values.
+				 * For per-visitor data, use the `agewallet_metadata` filter
+				 * instead — it fires at verify-click time and is cache-safe.
 				 *
 				 * @param array $fields Associative array of selected fields with resolved values.
 				 *                       Keys whose values were unavailable for the current request
@@ -148,7 +135,8 @@ if ( ! class_exists( 'AgeWallet_Metadata_Builder' ) ) {
 		}
 
 		/**
-		 * Resolve a single field name to a value, or null if unavailable.
+		 * Resolve a single page-context field to a value, or null if unavailable.
+		 * user_id and user_role are resolved at click-time in AgeWallet_OIDC_Handler.
 		 *
 		 * @param string $field
 		 * @return mixed
@@ -168,35 +156,11 @@ if ( ! class_exists( 'AgeWallet_Metadata_Builder' ) ) {
 				case 'post_type':
 					return ( function_exists( 'is_singular' ) && is_singular() ) ? (string) get_post_type() : null;
 
-				case 'user_id':
-					$uid = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
-					return $uid > 0 ? $uid : null;
-
-				case 'user_role':
-					if ( function_exists( 'is_user_logged_in' ) && is_user_logged_in() ) {
-						$user = wp_get_current_user();
-						return ! empty( $user->roles ) ? (string) reset( $user->roles ) : null;
-					}
-					return null;
-
 				case 'request_path':
 					if ( ! isset( $_SERVER['REQUEST_URI'] ) ) {
 						return null;
 					}
 					return (string) strtok( wp_unslash( $_SERVER['REQUEST_URI'] ), '?' );
-
-				case 'referrer_host':
-					if ( empty( $_SERVER['HTTP_REFERER'] ) ) {
-						return null;
-					}
-					$host = wp_parse_url( wp_unslash( $_SERVER['HTTP_REFERER'] ), PHP_URL_HOST );
-					return $host ? (string) $host : null;
-
-				case 'utm_source':
-					return isset( $_GET['utm_source'] ) ? sanitize_text_field( wp_unslash( $_GET['utm_source'] ) ) : null;
-
-				case 'utm_campaign':
-					return isset( $_GET['utm_campaign'] ) ? sanitize_text_field( wp_unslash( $_GET['utm_campaign'] ) ) : null;
 
 				case 'page_type':
 					return self::classify_page_type();
