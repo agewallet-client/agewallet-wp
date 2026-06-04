@@ -84,10 +84,10 @@ class AgeWallet_API {
 		// Detect Setting Change to Reschedule immediately
 		add_action( 'update_option_agewallet_cache_ttl', array( $this, 'handle_ttl_change' ), 10, 2 );
 
-		// Detect metadata-related setting changes and auto-purge the gate cache.
-		// The signed md= URL is baked into each cached gate skeleton at render time,
-		// so without these hooks the old metadata keeps shipping to visitors until
-		// the cron purge fires (or the admin clicks Purge manually).
+		// Detect metadata-related setting changes and auto-purge the cache.
+		// The signed md= URL is baked into each cached page at render time, so
+		// without these hooks the old metadata keeps shipping to visitors until
+		// the cron purge fires (or the admin clicks Purge Cache manually).
 		$metadata_options = array(
 			'agewallet_metadata_mode',                       // off/static/auto radio
 			AgeWalletOIDCClientPro::OPT_METADATA_DEFAULT,    // static text input
@@ -427,13 +427,13 @@ class AgeWallet_API {
 	}
 
 	/**
-	 * Purge the gate cache when a metadata-related setting changes so the new
-	 * value takes effect on the next visitor.
+	 * Purge the cache when a metadata-related setting changes so the new value
+	 * takes effect on the next visitor.
 	 *
-	 * The signed md= URL is baked into each cached gate skeleton at render time
+	 * The signed md= URL is baked into each cached page at render time
 	 * (see AgeWallet_Gating_Manager + AgeWallet_Metadata_Builder::build()), so
 	 * without an immediate purge the previous metadata keeps shipping until the
-	 * scheduled cron purge or a manual admin Purge click.
+	 * scheduled cron purge or a manual admin Purge Cache click.
 	 *
 	 * Hooked to update_option_agewallet_metadata_mode, update_option_agewallet_metadata_default,
 	 * update_option_agewallet_auto_metadata_fields, and update_option_agewallet_wc_metadata_fields.
@@ -443,7 +443,7 @@ class AgeWallet_API {
 			return;
 		}
 		if ( class_exists( 'AgeWallet_Helpers' ) ) {
-			AgeWallet_Helpers::instance()->log( 'Metadata setting changed; auto-purging gate cache so the new value takes effect immediately.' );
+			AgeWallet_Helpers::instance()->log( 'Metadata setting changed; auto-purging cache so the new value takes effect immediately.' );
 		}
 		$this->clear_all_cache();
 	}
