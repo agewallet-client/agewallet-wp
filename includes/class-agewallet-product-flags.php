@@ -34,9 +34,10 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 		}
 
 		private function __construct() {
-			if ( ! class_exists( 'WooCommerce' ) ) {
-				return;
-			}
+			// Hooks register unconditionally — they're WC-specific by name and only fire when
+			// WC actually invokes them. Guarding the registration on class_exists('WooCommerce')
+			// would fail at file-load time (agewallet plugin loads before WC alphabetically),
+			// so the constructor would bail before any hooks register.
 
 			// Product data tab + panel + save.
 			add_filter( 'woocommerce_product_data_tabs',   array( $this, 'add_product_data_tab' ) );
