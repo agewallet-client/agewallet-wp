@@ -2,10 +2,10 @@
 Contributors: AgeWallet LLC
 Tags: age verification, age gate, agewallet, content restriction, oidc, access control, protect content
 Requires at least: 5.8
-Tested up to: 6.4
+Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.4.0
-Version: 1.3.1
+Version: 1.4.0
 Author: AgeWallet LLC
 Author URI: https://agewallet.com
 
@@ -35,6 +35,12 @@ Key Features:
     * Path-Based Protection: Automatically protect specific URL paths (e.g., `/shop/`, `/videos/premium/`).
     * Per-Post Control: Force or exclude verification on individual posts via the editor sidebar.
     * Shortcode Protection: Protect specific page elements using `[agewallet_protected]`.
+* WooCommerce Integration:
+    * Checkout Gating Modes: Off (no checkout-specific rule), Force Always (every checkout gates), or Conditional on Cart (gate fires only when the cart contains items flagged as regulated).
+    * Regulated Product Controls: Flag individual products as Not Regulated, Regulated, or Override (force unregulated even when the product's category or tag is flagged) via a new "AgeWallet" tab in the product data metabox.
+    * Regulated Categories and Tags: Flag entire product categories or tags as regulated via a checkbox on the term edit screens. Products inherit the regulated flag from any of their categories or tags.
+    * Cart Context Metadata: Per-checkout cart context (cart hash, total, currency, line item count, billing country) is automatically attached to the verification, with a cart_triggers audit trail capturing which products, categories, and tags triggered the gate in Conditional on Cart mode.
+* Metadata Pass-Through: Attach an opaque per-verification string (up to 4KB) — static text or an auto-composed JSON of selected request-context fields — to every AgeWallet verification. The metadata round-trips through the OIDC flow and surfaces on the userinfo response, letting integrators tie verifications back to their own session, order, or customer records.
 
 == Installation ==
 
@@ -247,9 +253,13 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * `agewallet_cookie_payload` (filter) - Modify the data array stored inside the signed cookie before it is signed.
 * `agewallet_cookie_validation_error` (action) - Fires when a cookie fails HMAC validation (args: error_type, cookie_value).
 
+= Metadata Builder (class-agewallet-metadata-builder.php) =
+* `agewallet_auto_metadata` (filter) - Modify the resolved auto-metadata fields array (post_id, post_slug, request_path, user_id, etc.) before it is JSON-encoded into the metadata string.
+
 = OIDC Handler (class-agewallet-oidc-handler.php) =
 * `agewallet_state_transient_expiration` (filter) - Change the expiration time for the OIDC session transient.
 * `agewallet_auth_request_params` (filter) - Modify the parameters sent in the authorization request to AgeWallet.
+* `agewallet_metadata` (filter) - Modify the metadata string just before it is signed and attached to the verification request. Receives the value produced by the configured metadata source (Off, Static text, or Auto JSON of selected fields).
 * `agewallet_oidc_error` (action) - Fires when an error is returned from the AgeWallet callback.
 * `agewallet_token_request_args` (filter) - Modify the arguments for the server-to-server token exchange request.
 * `agewallet_verification_success` (action) - Fires immediately after a user's age is successfully verified.
@@ -282,16 +292,36 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * `agewallet_before_cache_purge` (action) - Fires immediately before cache files are deleted (args: type, count/id).
 * `agewallet_after_cache_purge` (action) - Fires immediately after cache files are deleted.
 
+= WooCommerce (class-agewallet-woocommerce.php & class-agewallet-product-flags.php) =
+* `agewallet_wc_checkout_metadata` (filter) - Modify the per-checkout JSON metadata blob (cart hash, total, currency, line item count, billing country, etc.) before it is attached to the verification.
+* `agewallet_cart_has_regulated_items` (filter) - Override the boolean decision on whether the current WC cart contains items that should trigger the checkout gate in "Conditional on cart" mode. Useful for custom rules such as "regulated if cart total exceeds X" or "regulated if shipping to a specific country".
+* `agewallet_regulated_cart_triggers` (filter) - Modify the array of product IDs, category term IDs, and tag term IDs that triggered the regulated-cart check. Used both for the gating decision and for the cart_triggers audit field stored in metadata.
+
+= Public Helper Functions =
+* `agewallet_get_metadata()` - Returns the metadata value attached to the currently verified user's session as a string, or empty string if not available. Reads from the signed verification cookie payload.
+
+= Public PHP Methods =
+* `AgeWallet_WooCommerce::checkout_gating_mode()` - Returns the configured WC checkout-gate mode as a string: `'off'`, `'force-always'`, or `'conditional-on-cart'`.
+* `AgeWallet_WooCommerce::checkout_gating_enabled()` - Returns true when the checkout gate is enabled in any mode (force-always or conditional-on-cart).
+* `AgeWallet_WooCommerce::cart_contains_regulated_items()` - Returns true when the current WC cart contains at least one item flagged as regulated.
+* `AgeWallet_WooCommerce::get_regulated_triggers()` - Returns an associative array of product IDs, category term IDs, and tag term IDs that triggered the regulated-cart check.
+* `AgeWallet_WooCommerce::product_is_regulated( $product )` - Returns true when the given WC_Product (or its parent for variations) is flagged as regulated, either directly via the per-product status or inherited from its categories or tags.
+* `AgeWallet_WooCommerce::is_checkout_request()` - Returns true when the current request is the WooCommerce-configured checkout page.
+* `AgeWallet_WooCommerce::is_dynamic_wc_page()` - Returns true when the current request is a WooCommerce page that must never be served from the strict-mode cache (checkout, cart, my-account).
+
+= Post & Term Meta Keys =
+* `_agewallet_regulated_status` (post meta on `product`) - Per-product regulated status. Accepts `'not_regulated'` (default), `'regulated'`, or `'override_not_regulated'` (forces unregulated even when the product's category or tag is flagged).
+* `agewallet_regulated` (term meta on `product_cat` and `product_tag`) - When set to `'1'`, every product in this category or tag is treated as regulated for the WC checkout gate in "Conditional on cart" mode.
+* `_agewallet_force_restrict` (post meta) - When set to `'1'`, forces the age gate to fire on this single post regardless of global rules.
+* `_agewallet_force_exclude` (post meta) - When set to `'1'`, forces the age gate to be skipped on this single post regardless of global rules. Takes priority over `_agewallet_force_restrict`.
+
 == Changelog ==
 
 = 1.4.0 =
-* Feature: Metadata pass-through. An opaque per-verification string (up to 4096 bytes) can now be attached to every AgeWallet verification. The Credentials page exposes a "Metadata source" picker with three modes: Off, Static text (literal string), and Auto JSON (compose from selected request-context fields — post / user / request / marketing / archive). Two filter hooks let developers extend: `agewallet_auto_metadata` (array, before encoding) and `agewallet_metadata` (final string, after encoding). Read back with `agewallet_get_metadata()`.
-* Feature: WooCommerce checkout gating. New "Always gate checkout" option on the Content Guarding page (visible only when WooCommerce is active) forces verification on the checkout page regardless of other rules. Per-checkout cart context (cart hash, total, currency, etc.) is attached automatically as metadata; customise via the `agewallet_wc_checkout_metadata` filter.
+* Feature: Metadata pass-through. An opaque per-verification string (up to 4096 bytes) can now be attached to every AgeWallet verification. The Credentials page exposes a "Metadata source" picker with three modes: Off, Static text (literal string), and Auto JSON (compose from selected fields across post, user, request, and archive context groups). Metadata is computed at gate-render time and HMAC-signed for transport via the launch URL. Two filter hooks let developers extend: `agewallet_auto_metadata` (array, before encoding) and `agewallet_metadata` (final string, after encoding). Read back with `agewallet_get_metadata()`.
+* Feature: WooCommerce checkout gating. New three-state Checkout Gating control on the Content Guarding page (visible only when WooCommerce is active): Off (no checkout-specific rule), Force Always (every checkout gates), or Conditional on Cart (gate fires only when the cart contains items flagged as regulated). Regulated status is set per-product via a new "AgeWallet" tab in the product data metabox (Not Regulated / Regulated / Override) or per-category and per-tag via a Regulated checkbox on the term edit screens. Per-checkout cart context (cart hash, total, currency, line item count, billing country) is composed into the verification metadata and merged with any site-level metadata. When Conditional on Cart mode fires the gate, a cart_triggers audit field captures the product, category, and tag IDs that triggered. Filters: `agewallet_wc_checkout_metadata`, `agewallet_cart_has_regulated_items`, `agewallet_regulated_cart_triggers`.
 * Safety: Strict-mode cache automatically skips WooCommerce checkout, cart, and my-account pages. Caching cart-bearing pages would either render an empty cart in the cookieless loopback or leak one customer's HTML to another, so these pages always render live.
-* Safety: In Strict mode, per-visitor metadata fields (user_id, user_role, utm_source, utm_campaign, referrer_host) are disabled because the cached skeleton can't carry per-request context. Per-URL fields (post_id, term_id, page_type, etc.) continue to work normally.
-* Architecture: Metadata is computed at gate-render time (where WordPress has the correct page context) and HMAC-signed for transport via the launch URL — fixes a latent bug where post/archive/search fields silently resolved to null because the builder previously ran in the /agewallet/launch endpoint's WP context.
-* Improvement: On WooCommerce checkout, site-level metadata (Default Metadata field) is now MERGED with the cart context JSON instead of being overridden. A "tenant-abc" static value plus cart fields produces `{"site_metadata":"tenant-abc","cart_hash":"...","cart_total":"..."}`.
-* Dev: New helper `agewallet_get_metadata()` and `AgeWallet_Helpers::get_verified_cookie_payload()`.
+* Dev: New helper `agewallet_get_metadata()` and `AgeWallet_Helpers::get_verified_cookie_payload()`. Cart-inspection methods exposed on `AgeWallet_WooCommerce`: `checkout_gating_mode`, `cart_contains_regulated_items`, `get_regulated_triggers`, `product_is_regulated`. Programmatic flagging via post meta (`_agewallet_regulated_status` on products) and term meta (`agewallet_regulated` on `product_cat` and `product_tag`).
 
 = 1.3.1 =
 * Fix: On verification failure, redirect user back to originating page so the age gate re-triggers, rather than showing a misleading "cancelled or denied" message.
@@ -326,7 +356,7 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 == Upgrade Notice ==
 
 = 1.4.0 =
-Adds metadata pass-through and an opt-in WooCommerce checkout gating rule with per-order context attached as metadata.
+Adds metadata pass-through and a full WooCommerce integration with three-mode checkout gating (Off / Force Always / Conditional on Cart), per-product and per-category/tag regulated flagging, and per-checkout cart context attached as metadata.
 
 = 1.3.1 =
 On verification failure, users are now redirected back to the originating page instead of seeing a generic error.
