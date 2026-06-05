@@ -19,6 +19,23 @@ if ( ! class_exists( 'AgeWallet_WooCommerce' ) ) {
 
 		private static $instance = null;
 
+		/**
+		 * Post meta key for per-product regulated status.
+		 * Values: 'not_regulated' | 'regulated' | 'override_not_regulated' | (absent — treated as 'not_regulated')
+		 */
+		const META_KEY_PRODUCT_REGULATED_STATUS = '_agewallet_regulated_status';
+
+		/**
+		 * Term meta key for category/tag-level regulated flag.
+		 * Value: '1' if regulated, absent/'' otherwise.
+		 */
+		const META_KEY_TERM_REGULATED = 'agewallet_regulated';
+
+		/**
+		 * Default per-product regulated status when no post meta is set.
+		 */
+		const PRODUCT_REGULATED_STATUS_DEFAULT = 'not_regulated';
+
 		public static function instance() {
 			if ( is_null( self::$instance ) ) {
 				self::$instance = new self();
@@ -31,10 +48,37 @@ if ( ! class_exists( 'AgeWallet_WooCommerce' ) ) {
 		}
 
 		/**
-		 * True if the merchant has opted in to gating the WC checkout.
+		 * Returns the configured WC checkout-gate mode: one of
+		 * AgeWalletOIDCClientPro::WC_GATE_MODE_OFF, _FORCE_ALWAYS, or _CONDITIONAL_CART.
+		 *
+		 * Normalizes legacy values: integer/string 1 → 'force-always', 0/'' → 'off'.
+		 * Unknown values default to 'off'.
+		 */
+		public static function checkout_gating_mode() {
+			$raw = get_option( AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, AgeWalletOIDCClientPro::WC_GATE_MODE_OFF );
+
+			// Legacy normalization.
+			if ( 1 === $raw || '1' === $raw || true === $raw ) {
+				return AgeWalletOIDCClientPro::WC_GATE_MODE_FORCE_ALWAYS;
+			}
+			if ( 0 === $raw || '0' === $raw || '' === $raw || false === $raw || null === $raw ) {
+				return AgeWalletOIDCClientPro::WC_GATE_MODE_OFF;
+			}
+
+			$allowed = array(
+				AgeWalletOIDCClientPro::WC_GATE_MODE_OFF,
+				AgeWalletOIDCClientPro::WC_GATE_MODE_FORCE_ALWAYS,
+				AgeWalletOIDCClientPro::WC_GATE_MODE_CONDITIONAL_CART,
+			);
+			return in_array( $raw, $allowed, true ) ? $raw : AgeWalletOIDCClientPro::WC_GATE_MODE_OFF;
+		}
+
+		/**
+		 * True if WC checkout gating is enabled in any mode (force-always or conditional-on-cart).
+		 * Kept for callers that just want to know "is this opt-in turned on at all."
 		 */
 		public static function checkout_gating_enabled() {
-			return (bool) get_option( AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, false );
+			return AgeWalletOIDCClientPro::WC_GATE_MODE_OFF !== self::checkout_gating_mode();
 		}
 
 		/**
@@ -90,6 +134,150 @@ if ( ! class_exists( 'AgeWallet_WooCommerce' ) ) {
 		 */
 		public static function allowed_metadata_fields() {
 			return array( 'cart_hash', 'cart_total', 'currency', 'customer_id', 'billing_country', 'line_item_count' );
+		}
+
+		/**
+		 * True if the current cart contains at least one item flagged as regulated.
+		 *
+		 * Used by `should_restrict_content()` in the conditional-on-cart branch so the
+		 * checkout gate fires only when a regulated item is present. Short-circuits if
+		 * WC is missing or the cart is empty.
+		 *
+		 * Final result is passed through the `agewallet_cart_has_regulated_items` filter
+		 * so site developers can override the decision (e.g. "regulated if cart total > X",
+		 * "regulated if shipping to a specific country", etc.).
+		 *
+		 * Filter signature: apply_filters( 'agewallet_cart_has_regulated_items', bool $is_regulated, array $triggers, ?WC_Cart $cart )
+		 */
+		public static function cart_contains_regulated_items() {
+			if ( ! function_exists( 'WC' ) ) {
+				return apply_filters( 'agewallet_cart_has_regulated_items', false, array(), null );
+			}
+			$cart = WC()->cart ?? null;
+			if ( ! $cart || $cart->is_empty() ) {
+				return apply_filters( 'agewallet_cart_has_regulated_items', false, array(), $cart );
+			}
+
+			$triggers     = self::get_regulated_triggers();
+			$is_regulated = ! empty( $triggers['products'] )
+				|| ! empty( $triggers['product_cats'] )
+				|| ! empty( $triggers['product_tags'] );
+
+			return apply_filters( 'agewallet_cart_has_regulated_items', $is_regulated, $triggers, $cart );
+		}
+
+		/**
+		 * Collect the IDs of products, categories, and tags in the current cart that
+		 * caused the regulated-status check to fire. Used both by the gating decision
+		 * and by the metadata audit trail (`cart_triggers` field) so merchants can prove
+		 * which item(s) led to a given verification.
+		 *
+		 * Final array is passed through the `agewallet_regulated_cart_triggers` filter.
+		 *
+		 * @return array Shaped as: array( 'products' => int[], 'product_cats' => int[], 'product_tags' => int[] ).
+		 */
+		public static function get_regulated_triggers() {
+			$triggers = array(
+				'products'     => array(),
+				'product_cats' => array(),
+				'product_tags' => array(),
+			);
+
+			if ( ! function_exists( 'WC' ) ) {
+				return apply_filters( 'agewallet_regulated_cart_triggers', $triggers, null );
+			}
+			$cart = WC()->cart ?? null;
+			if ( ! $cart || $cart->is_empty() ) {
+				return apply_filters( 'agewallet_regulated_cart_triggers', $triggers, $cart );
+			}
+
+			foreach ( $cart->get_cart() as $item ) {
+				if ( empty( $item['data'] ) || ! ( $item['data'] instanceof WC_Product ) ) {
+					continue;
+				}
+				$product   = $item['data'];
+				$lookup_id = $product->get_parent_id() > 0 ? $product->get_parent_id() : $product->get_id();
+
+				if ( ! self::product_is_regulated( $product ) ) {
+					continue;
+				}
+
+				if ( ! in_array( $lookup_id, $triggers['products'], true ) ) {
+					$triggers['products'][] = $lookup_id;
+				}
+
+				$cat_terms = wp_get_post_terms( $lookup_id, 'product_cat', array( 'fields' => 'ids' ) );
+				if ( ! is_wp_error( $cat_terms ) ) {
+					foreach ( $cat_terms as $term_id ) {
+						if ( '1' === get_term_meta( $term_id, self::META_KEY_TERM_REGULATED, true )
+							 && ! in_array( $term_id, $triggers['product_cats'], true ) ) {
+							$triggers['product_cats'][] = (int) $term_id;
+						}
+					}
+				}
+
+				$tag_terms = wp_get_post_terms( $lookup_id, 'product_tag', array( 'fields' => 'ids' ) );
+				if ( ! is_wp_error( $tag_terms ) ) {
+					foreach ( $tag_terms as $term_id ) {
+						if ( '1' === get_term_meta( $term_id, self::META_KEY_TERM_REGULATED, true )
+							 && ! in_array( $term_id, $triggers['product_tags'], true ) ) {
+							$triggers['product_tags'][] = (int) $term_id;
+						}
+					}
+				}
+			}
+
+			return apply_filters( 'agewallet_regulated_cart_triggers', $triggers, $cart );
+		}
+
+		/**
+		 * True if the given product is regulated under the current rules.
+		 *
+		 * Per-product flag wins over category/tag flags:
+		 *   - 'regulated'              → returns true
+		 *   - 'override_not_regulated' → returns false (forces unregulated even if cat/tag says yes)
+		 *   - anything else            → falls through to category + tag check; any category OR tag
+		 *                                 carrying the `agewallet_regulated` term meta = '1' returns true.
+		 *
+		 * Variations inherit their parent's flag (`get_parent_id() > 0 ? parent : self`).
+		 *
+		 * @param WC_Product $product
+		 * @return bool
+		 */
+		public static function product_is_regulated( $product ) {
+			if ( ! $product instanceof WC_Product ) {
+				return false;
+			}
+			$lookup_id = $product->get_parent_id() > 0 ? $product->get_parent_id() : $product->get_id();
+
+			$status = get_post_meta( $lookup_id, self::META_KEY_PRODUCT_REGULATED_STATUS, true );
+			if ( 'regulated' === $status ) {
+				return true;
+			}
+			if ( 'override_not_regulated' === $status ) {
+				return false;
+			}
+
+			// Fall through to category + tag inheritance.
+			$cat_terms = wp_get_post_terms( $lookup_id, 'product_cat', array( 'fields' => 'ids' ) );
+			if ( ! is_wp_error( $cat_terms ) ) {
+				foreach ( $cat_terms as $term_id ) {
+					if ( '1' === get_term_meta( $term_id, self::META_KEY_TERM_REGULATED, true ) ) {
+						return true;
+					}
+				}
+			}
+
+			$tag_terms = wp_get_post_terms( $lookup_id, 'product_tag', array( 'fields' => 'ids' ) );
+			if ( ! is_wp_error( $tag_terms ) ) {
+				foreach ( $tag_terms as $term_id ) {
+					if ( '1' === get_term_meta( $term_id, self::META_KEY_TERM_REGULATED, true ) ) {
+						return true;
+					}
+				}
+			}
+
+			return false;
 		}
 
 		/**
@@ -164,6 +352,20 @@ if ( ! class_exists( 'AgeWallet_WooCommerce' ) ) {
 			}
 
 			$cart_array = $this->build_checkout_metadata_array();
+
+			// When the gate fired because of regulated cart contents, attach the trigger IDs
+			// to the metadata as an audit trail so merchants can prove which item(s) led to
+			// each verification. Only meaningful in conditional-on-cart mode — in force-always
+			// mode every checkout gates, so this field would just be noise.
+			if ( AgeWalletOIDCClientPro::WC_GATE_MODE_CONDITIONAL_CART === self::checkout_gating_mode() ) {
+				$triggers = self::get_regulated_triggers();
+				if ( ! empty( $triggers['products'] )
+					 || ! empty( $triggers['product_cats'] )
+					 || ! empty( $triggers['product_tags'] ) ) {
+					$cart_array['cart_triggers'] = $triggers;
+				}
+			}
+
 			if ( empty( $cart_array ) ) {
 				return $existing;
 			}

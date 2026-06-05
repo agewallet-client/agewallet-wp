@@ -393,16 +393,43 @@ class AgeWallet_Gating_Manager {
 		}
 
 		// 4a. WooCommerce checkout — additive override. Gates the checkout
-		// regardless of block_mode/paths/taxonomy, when the merchant opts in.
+		// regardless of block_mode/paths/taxonomy, in one of two modes:
+		//   - force-always:        every checkout gates (current binary behavior)
+		//   - conditional-on-cart: gates only when an unverified visitor's cart
+		//                          contains at least one item flagged as regulated
 		if (
 			class_exists( 'WooCommerce' )
 			&& class_exists( 'AgeWallet_WooCommerce' )
-			&& AgeWallet_WooCommerce::checkout_gating_enabled()
 			&& is_null( $context_post_id ) // API/post-context callers skip this; this is a request-level rule.
 			&& AgeWallet_WooCommerce::is_checkout_request()
 		) {
-			$this->log_debug( 'Rule Check: WC checkout always-gate enabled and request is checkout.' );
-			return apply_filters( 'agewallet_should_gate_request', true, $post_id );
+			$mode = AgeWallet_WooCommerce::checkout_gating_mode();
+
+			if ( AgeWalletOIDCClientPro::WC_GATE_MODE_FORCE_ALWAYS === $mode ) {
+				$this->log_debug( 'Rule Check: WC checkout force-always enabled and request is checkout.' );
+				return apply_filters( 'agewallet_should_gate_request', true, $post_id );
+			}
+
+			if ( AgeWalletOIDCClientPro::WC_GATE_MODE_CONDITIONAL_CART === $mode ) {
+				// Short-circuit: already-verified visitors don't need cart inspection
+				// (and we don't want to pay for the per-item meta reads on every page hit).
+				$is_verified = false;
+				if ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && class_exists( 'AgeWallet_Helpers' ) ) {
+					$is_verified = AgeWallet_Helpers::instance()->verify_signed_cookie( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] );
+				}
+				if ( $is_verified ) {
+					$this->log_debug( 'Rule Check: WC checkout conditional-on-cart, visitor already verified — skipping cart inspection.' );
+					return false;
+				}
+				if ( AgeWallet_WooCommerce::cart_contains_regulated_items() ) {
+					$this->log_debug( 'Rule Check: WC checkout conditional-on-cart, cart contains regulated items — gating.' );
+					return apply_filters( 'agewallet_should_gate_request', true, $post_id );
+				}
+				$this->log_debug( 'Rule Check: WC checkout conditional-on-cart, no regulated items in cart — not gating.' );
+				return false;
+			}
+
+			// WC_GATE_MODE_OFF — fall through to general block_mode logic below.
 		}
 
 		// 4. Check Global Settings.

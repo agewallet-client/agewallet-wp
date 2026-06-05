@@ -71,6 +71,11 @@ final class AgeWalletOIDCClientPro {
 	const OPT_WC_GATE_CHECKOUT      = 'agewallet_wc_gate_checkout';
 	const OPT_WC_METADATA_FIELDS    = 'agewallet_wc_checkout_metadata_fields';
 
+	// WC checkout-gate mode values (stored in OPT_WC_GATE_CHECKOUT)
+	const WC_GATE_MODE_OFF              = 'off';
+	const WC_GATE_MODE_FORCE_ALWAYS     = 'force-always';
+	const WC_GATE_MODE_CONDITIONAL_CART = 'conditional-on-cart';
+
 	// Metadata length cap (matches server-side acceptance limit)
 	const METADATA_MAX_BYTES = 4096;
 
@@ -167,6 +172,7 @@ final class AgeWalletOIDCClientPro {
 			'class-agewallet-oidc-handler.php',
 			'class-agewallet-gating-manager.php',
 			'class-agewallet-api.php',
+			'class-agewallet-product-flags.php',
 		);
 
 		// HOOK: Allow developers to add/remove/change dependency files.

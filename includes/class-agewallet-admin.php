@@ -171,11 +171,11 @@ class AgeWallet_Admin {
 
 		// WooCommerce Rules — only shown when WC is active.
 		if ( class_exists( 'WooCommerce' ) ) {
-			register_setting( $this->group_guarding, AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ), 'default' => 0 ) );
+			register_setting( $this->group_guarding, AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, array( 'sanitize_callback' => array( $this, 'sanitize_wc_gate_mode' ), 'default' => AgeWalletOIDCClientPro::WC_GATE_MODE_OFF ) );
 			register_setting( $this->group_guarding, AgeWalletOIDCClientPro::OPT_WC_METADATA_FIELDS, array( 'sanitize_callback' => array( $this, 'sanitize_wc_metadata_fields' ), 'default' => array( 'cart_hash', 'cart_total', 'currency' ) ) );
 
 			add_settings_section( 'aw_sec_wc', __( 'WooCommerce', 'agewallet' ), array( $this, 'render_wc_section_description' ), 'agewallet-guarding' );
-			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, __( 'Always gate checkout', 'agewallet' ), array( $this, 'render_checkbox' ), 'agewallet-guarding', 'aw_sec_wc', array( 'label_for' => AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, 'label' => __( 'Force verification on the WooCommerce checkout page, regardless of other gating settings.', 'agewallet' ) ) );
+			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, __( 'Checkout gating', 'agewallet' ), array( $this, 'render_wc_gate_mode_radio' ), 'agewallet-guarding', 'aw_sec_wc', array( 'label_for' => AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT ) );
 			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_METADATA_FIELDS, __( 'Checkout metadata fields', 'agewallet' ), array( $this, 'render_wc_metadata_fields_ui' ), 'agewallet-guarding', 'aw_sec_wc' );
 		}
 
@@ -656,6 +656,39 @@ class AgeWallet_Admin {
 		}
 	}
 
+	public function render_wc_gate_mode_radio( $args ) {
+		$option_name = $args['label_for'];
+		$mode        = AgeWallet_WooCommerce::checkout_gating_mode();
+
+		$modes = array(
+			AgeWalletOIDCClientPro::WC_GATE_MODE_OFF              => array(
+				'label' => __( 'Off — no checkout-specific gating', 'agewallet' ),
+				'desc'  => __( 'The general gating rules (Block mode, paths, taxonomy) apply unchanged.', 'agewallet' ),
+			),
+			AgeWalletOIDCClientPro::WC_GATE_MODE_FORCE_ALWAYS     => array(
+				'label' => __( 'Force always — gate every checkout', 'agewallet' ),
+				'desc'  => __( 'Every visit to the checkout page requires age verification, regardless of other rules.', 'agewallet' ),
+			),
+			AgeWalletOIDCClientPro::WC_GATE_MODE_CONDITIONAL_CART => array(
+				'label' => __( 'Conditional on cart — gate only when cart contains regulated items', 'agewallet' ),
+				'desc'  => __( 'Flag products, categories, or tags as regulated (see Products → individual product or Products → Categories/Tags). The checkout page only requires verification when the cart contains at least one regulated item AND the visitor is not already verified.', 'agewallet' ),
+			),
+		);
+
+		echo '<fieldset class="aw-wc-gate-mode">';
+		foreach ( $modes as $value => $entry ) {
+			printf(
+				'<label style="display:block; margin-bottom:8px;"><input type="radio" name="%1$s" value="%2$s" %3$s /> <strong>%4$s</strong><br><span class="description" style="margin-left:24px;">%5$s</span></label>',
+				esc_attr( $option_name ),
+				esc_attr( $value ),
+				checked( $value, $mode, false ),
+				esc_html( $entry['label'] ),
+				esc_html( $entry['desc'] )
+			);
+		}
+		echo '</fieldset>';
+	}
+
 	public function render_css_editor( $args ) {
 		$option_name = 'agewallet_custom_css';
 		$value       = get_option( $option_name, '' );
@@ -947,6 +980,22 @@ class AgeWallet_Admin {
 
 	public function sanitize_checkbox( $input ) {
 		return ( isset( $input ) && '1' === $input ) ? 1 : 0;
+	}
+
+	public function sanitize_wc_gate_mode( $input ) {
+		// Legacy normalization: integer/string 1 = old checkbox checked → force-always; 0/'' = unchecked → off.
+		if ( 1 === $input || '1' === $input || true === $input ) {
+			return AgeWalletOIDCClientPro::WC_GATE_MODE_FORCE_ALWAYS;
+		}
+		if ( 0 === $input || '0' === $input || '' === $input || null === $input ) {
+			return AgeWalletOIDCClientPro::WC_GATE_MODE_OFF;
+		}
+		$allowed = array(
+			AgeWalletOIDCClientPro::WC_GATE_MODE_OFF,
+			AgeWalletOIDCClientPro::WC_GATE_MODE_FORCE_ALWAYS,
+			AgeWalletOIDCClientPro::WC_GATE_MODE_CONDITIONAL_CART,
+		);
+		return in_array( $input, $allowed, true ) ? $input : AgeWalletOIDCClientPro::WC_GATE_MODE_OFF;
 	}
 
 	public function sanitize_block_mode( $input ) {
