@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AgeWallet OIDC Client
  * Description: Secure AgeWallet OIDC flow for WordPress using transients and client-side gating for cache compatibility.
- * Version:     1.4.0
+ * Version:     1.5.0
  * Author:      AgeWallet LLC
  * Author URI:  https://agewallet.com
  * Text Domain: agewallet

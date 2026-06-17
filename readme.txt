@@ -4,7 +4,7 @@ Tags: age verification, age gate, agewallet, content restriction, oidc, access c
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 Version: 1.4.0
 Author: AgeWallet LLC
 Author URI: https://agewallet.com
