@@ -1,13 +1,12 @@
 === AgeWallet OIDC Client ===
-Contributors: AgeWallet LLC
-Tags: age verification, age gate, agewallet, content restriction, oidc, access control, protect content
+Contributors: cookedbiscuits
+Tags: age verification, age gate, agewallet, content restriction, oidc
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.0
-Version: 1.4.0
-Author: AgeWallet LLC
-Author URI: https://agewallet.com
+Stable tag: 1.5.1
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Secure, customizable age verification for WordPress via the AgeWallet OIDC service.
 Cache-compatible and designed for legal compliance.
@@ -50,7 +49,35 @@ Key Features:
 4. Look for the AgeWallet item in your main WordPress admin menu to launch the setup wizard.
 5. After configuring your potection settings be sure to clear any server, plugin or CloudFlare caches.
 
-== Usage Guide ==
+== Frequently Asked Questions ==
+
+= Do I need an AgeWallet account to use this plugin? =
+
+Yes. The plugin is a client for the AgeWallet OIDC age-verification service. Create a business account at https://agewallet.com to obtain a Client ID and Client Secret, then enter them on the plugin's Credentials screen.
+
+= Will the plugin work with my caching plugin or CDN (Cloudflare, Varnish, WP Rocket, etc.)? =
+
+Yes. Standard (Overlay) mode is fully cache-compatible — the page HTML is the same for every visitor and the gate is enforced client-side. High Security (Strict) mode uses a split-cache system that ships a cookieless "Skeleton" page from cache and fetches the real content via an authenticated API call once the visitor is verified, so it works with "Cache Everything" rules.
+
+= Does it work with WooCommerce? =
+
+Yes. The plugin integrates with WooCommerce checkout. You can gate every checkout, gate only when the cart contains regulated items, or leave checkout ungated. Regulated status can be set per-product, per-category, or per-tag.
+
+= How do I customize the look of the gate? =
+
+Upload your logo, customize the headline and body copy via the WYSIWYG editor, and override CSS through the Custom CSS field on the Gate Appearance settings tab. See the in-dashboard Plugin Guide page for the full list of CSS classes.
+
+= Does the plugin store any personal data about my visitors? =
+
+The plugin stores a signed HMAC verification cookie on the visitor's browser indicating that they passed age verification. No personal identifying information is stored on your WordPress site — verification is handled by the AgeWallet service, and only the pass/fail outcome reaches your site. See https://agewallet.com/privacy for full details.
+
+= What happens to my data if I uninstall the plugin? =
+
+Deleting the plugin from the Plugins screen runs `uninstall.php`, which removes all `agewallet_*` options, transients, scheduled cron events, and the strict-mode HTML cache directory. Verification cookies on visitor browsers expire on their own.
+
+== Other Notes ==
+
+= Usage Guide =
 
 This guide explains how to configure and use the plugin using the new setup wizard.
 
@@ -141,7 +168,7 @@ If you use High Security Mode, the plugin generates static HTML caches of your p
 * Scheduled Cleanup: You can configure an automatic cache purge schedule (default: every 4 hours) in the "Cache Control" settings tab.
 * Manual Purge: If you change settings and don't see them update immediately, click the "Purge Cache" button available in the sidebar of any AgeWallet settings page (or under Cache Control).
 
-== CSS Customization Guide ==
+= CSS Customization Guide =
 
 Use this guide to customize the appearance of the AgeWallet™ age gate and the Strict Mode loading screen.
 You can enter these overrides in Step 3: Gate Appearance > Custom CSS or add them to your theme's stylesheet.
@@ -227,7 +254,7 @@ You can also enqueue a custom CSS file using:
 
 Use your browser's developer tools (Inspect Element) to preview your changes live.
 
-== Developer Hooks ==
+= Developer Hooks =
 
 This plugin includes a number of action and filter hooks to allow for advanced customization and integration.
 
@@ -315,7 +342,22 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 * `_agewallet_force_restrict` (post meta) - When set to `'1'`, forces the age gate to fire on this single post regardless of global rules.
 * `_agewallet_force_exclude` (post meta) - When set to `'1'`, forces the age gate to be skipped on this single post regardless of global rules. Takes priority over `_agewallet_force_restrict`.
 
+== Screenshots ==
+
+1. The age gate overlay shown to unverified visitors in Standard (Overlay) mode.
+2. The Strict Mode "Verifying..." skeleton screen used when content must not load until verification completes.
+3. The plugin's setup wizard — Step 1 (API Credentials).
+4. The Content Guarding screen — taxonomy, path, and global protection rules.
+5. The WooCommerce checkout-gating settings and per-product Regulated flag.
+
+== License ==
+
+This plugin is licensed under the GNU General Public License v2.0 or later. A copy of the license is included in `LICENSE.txt` and is available at https://www.gnu.org/licenses/gpl-2.0.html.
+
 == Changelog ==
+
+= 1.5.1 =
+* Maintenance: Prepared the plugin for the WordPress.org plugin directory. Removed the bundled third-party update checker (WordPress.org now handles all updates). Added GPL-2.0-or-later license declaration. Reconciled the version string across the plugin header, the internal `AGEWALLET_VERSION` constant, and `readme.txt`. Added `uninstall.php` for clean removal of options, scheduled cron events, and the strict-mode cache directory.
 
 = 1.4.0 =
 * Feature: Metadata pass-through. An opaque per-verification string (up to 4096 bytes) can now be attached to every AgeWallet verification. The Credentials page exposes a "Metadata source" picker with three modes: Off, Static text (literal string), and Auto JSON (compose from selected fields across post, user, request, and archive context groups). Metadata is computed at gate-render time and HMAC-signed for transport via the launch URL. Two filter hooks let developers extend: `agewallet_auto_metadata` (array, before encoding) and `agewallet_metadata` (final string, after encoding). Read back with `agewallet_get_metadata()`.

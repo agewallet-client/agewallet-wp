@@ -2,31 +2,21 @@
 /**
  * Plugin Name: AgeWallet OIDC Client
  * Description: Secure AgeWallet OIDC flow for WordPress using transients and client-side gating for cache compatibility.
- * Version:     1.5.0
+ * Version:     1.5.1
  * Author:      AgeWallet LLC
  * Author URI:  https://agewallet.com
  * Text Domain: agewallet
  * Requires at least: 5.8
  * Requires PHP: 7.4
+ * License:     GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
-
-// --- DEBUG LOGGING ---
-if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-	// Check if error_log is writable - basic check
-	if ( @error_log( '--- AgeWallet Plugin Loading Check ---' . PHP_EOL, 3, WP_CONTENT_DIR . '/debug.log' ) ) {
-		error_log( '[AgeWallet Plugin] Main plugin file (agewallet.php) is loading.' );
-	} else {
-		// Fallback if writing to debug.log fails - might go to server log
-		error_log( '[AgeWallet Plugin] Main plugin file (agewallet.php) is loading (debug.log might be unwritable).' );
-	}
-}
-// --- END DEBUG LOGGING ---
 
 // Prevent direct script access.
 defined( 'ABSPATH' ) || exit;
 
 // Define essential plugin constants.
-define( 'AGEWALLET_VERSION', '1.4.0' );
+define( 'AGEWALLET_VERSION', '1.5.1' );
 define( 'AGEWALLET_PLUGIN_FILE', __FILE__ );
 define( 'AGEWALLET_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGEWALLET_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -204,16 +194,6 @@ final class AgeWalletOIDCClientPro {
 			}
 		}
 
-		// Load the plugin update checker library
-		$updater_file = AGEWALLET_PLUGIN_DIR . 'includes/updater/plugin-update-checker/plugin-update-checker.php';
-		if ( file_exists( $updater_file ) ) {
-			require_once $updater_file;
-			$this->log_debug( 'Loaded file: includes/updater/plugin-update-checker/plugin-update-checker.php' );
-		} else {
-			// Log if the updater is missing, but don't show an admin notice as it's not critical for function
-			$this->log_debug( "Notice: Plugin updater library not found at {$updater_file}. Automatic updates will be disabled." );
-		}
-
 		// --- DEBUG LOGGING ---
 		$this->log_debug( 'load_dependencies finished.' );
 		// --- END DEBUG LOGGING ---
@@ -310,42 +290,12 @@ final class AgeWalletOIDCClientPro {
 			}
 		}
 
-		// Initialize the custom plugin updater
-		$this->initialize_updater();
-
 		// HOOK: Signal that all AgeWallet components are loaded and ready.
 		do_action( 'agewallet_initialized' );
 
 		// --- DEBUG LOGGING ---
 		$this->log_debug( 'init_plugin finished.' );
 		// --- END DEBUG LOGGING ---
-	}
-
-	/**
-	 * Initializes the Plugin Update Checker library.
-	 *
-	 * @since 0.1.0
-	 * @access private
-	 */
-	private function initialize_updater() {
-		// Check if the factory class from the updater library exists
-		if ( ! class_exists( 'YahnisElsts\PluginUpdateChecker\v5\PucFactory' ) ) {
-			$this->log_debug( 'Plugin updater class "PucFactory" not found. Cannot initialize updater.' );
-			return;
-		}
-
-		try {
-			$update_checker = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
-				'https://utilities.agewallet.io/wp-update-server/?action=get_metadata&slug=agewallet', // Metadata URL
-				AGEWALLET_PLUGIN_FILE, // Full path to this plugin's main file
-				'agewallet'    // The plugin's slug (must match server)
-			);
-
-			$this->log_debug( 'Plugin Update Checker initialized.', array( 'slug' => 'agewallet' ) );
-
-		} catch ( Exception $e ) {
-			$this->log_debug( 'ERROR: Failed to initialize Plugin Update Checker.', array( 'exception' => $e->getMessage() ) );
-		}
 	}
 
 	/**
