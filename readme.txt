@@ -53,7 +53,7 @@ Key Features:
 
 = Do I need an AgeWallet account to use this plugin? =
 
-Yes. The plugin is a client for the AgeWallet OIDC age-verification service. Create a business account at https://agewallet.com to obtain a Client ID and Client Secret, then enter them on the plugin's Credentials screen.
+Yes. The plugin is a client for the AgeWallet OIDC age-verification service. Apply for a business account at https://agewallet.com to obtain a Client ID and Client Secret, then enter them on the plugin's Credentials screen.
 
 = Will the plugin work with my caching plugin or CDN (Cloudflare, Varnish, WP Rocket, etc.)? =
 
