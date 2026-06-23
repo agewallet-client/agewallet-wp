@@ -1,10 +1,10 @@
 === AgeWallet OIDC Client ===
-Contributors: cookedbiscuits
+Contributors: agewallet, cookedbiscuits
 Tags: age verification, age gate, agewallet, content restriction, oidc
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.1
+Stable tag: 1.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -355,6 +355,9 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 This plugin is licensed under the GNU General Public License v2.0 or later. A copy of the license is included in `LICENSE.txt` and is available at https://www.gnu.org/licenses/gpl-2.0.html.
 
 == Changelog ==
+
+= 1.5.2 =
+* Maintenance: WooCommerce Marketplace prep. Added the standard `WC requires at least` and `WC tested up to` plugin header lines, and declared High-Performance Order Storage (HPOS) compatibility. The plugin's WooCommerce integration only reads cart and product data, so HPOS compatibility is safe.
 
 = 1.5.1 =
 * Maintenance: Prepared the plugin for the WordPress.org plugin directory. Removed the bundled third-party update checker (WordPress.org now handles all updates). Added GPL-2.0-or-later license declaration. Reconciled the version string across the plugin header, the internal `AGEWALLET_VERSION` constant, and `readme.txt`. Added `uninstall.php` for clean removal of options, scheduled cron events, and the strict-mode cache directory.

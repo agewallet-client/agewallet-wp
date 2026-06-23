@@ -2,12 +2,14 @@
 /**
  * Plugin Name: AgeWallet OIDC Client
  * Description: Secure AgeWallet OIDC flow for WordPress using transients and client-side gating for cache compatibility.
- * Version:     1.5.1
+ * Version:     1.5.2
  * Author:      AgeWallet LLC
  * Author URI:  https://agewallet.com
  * Text Domain: agewallet
  * Requires at least: 5.8
  * Requires PHP: 7.4
+ * WC requires at least: 7.0
+ * WC tested up to: 9.5
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
@@ -15,8 +17,21 @@
 // Prevent direct script access.
 defined( 'ABSPATH' ) || exit;
 
+// Declare WooCommerce HPOS (High-Performance Order Storage) compatibility.
+// Plugin's WC integration only reads cart and product data; it does not touch
+// the orders table directly, so HPOS is safe.
+add_action( 'before_woocommerce_init', function () {
+	if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility(
+			'custom_order_tables',
+			__FILE__,
+			true
+		);
+	}
+} );
+
 // Define essential plugin constants.
-define( 'AGEWALLET_VERSION', '1.5.1' );
+define( 'AGEWALLET_VERSION', '1.5.2' );
 define( 'AGEWALLET_PLUGIN_FILE', __FILE__ );
 define( 'AGEWALLET_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGEWALLET_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
