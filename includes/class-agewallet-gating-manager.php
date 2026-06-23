@@ -144,8 +144,10 @@ class AgeWallet_Gating_Manager {
 		// We check BOTH the constant (set by API class) AND the query string directly as a fail-safe.
 		$bypass_secret = get_option( 'agewallet_loopback_secret' );
 
-		// WordPress applies "magic quotes" to $_GET. We must strip slashes to match the DB secret.
-		$param_secret  = isset( $_GET['aw_cache_bypass'] ) ? stripslashes( $_GET['aw_cache_bypass'] ) : '';
+		// HMAC bypass-secret read; auth is hash_equals below, not a nonce. Server-to-server signed
+		// request from our own build_cache() loopback, not a form submit.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$param_secret  = isset( $_GET['aw_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['aw_cache_bypass'] ) ) : '';
 
 		// --- DEBUGGING INSTRUMENTATION ---
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -153,12 +155,13 @@ class AgeWallet_Gating_Manager {
 			if ( ! empty( $param_secret ) ) {
 				$this->log_debug( '--- BYPASS DEBUG ---' );
 				$this->log_debug( 'Stored Secret: ' . $bypass_secret );
-				$this->log_debug( 'Incoming Raw: ' . ( isset( $_GET['aw_cache_bypass'] ) ? $_GET['aw_cache_bypass'] : 'NULL' ) );
+				$this->log_debug( 'Incoming Raw: ' . ( isset( $_GET['aw_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['aw_cache_bypass'] ) ) : 'NULL' ) );
 				$this->log_debug( 'Incoming Stripped: ' . $param_secret );
 				$this->log_debug( 'Constant Defined: ' . ( defined( 'AGEWALLET_CACHE_BUILDING' ) ? 'YES' : 'NO' ) );
 			}
 		}
 		// --- END DEBUGGING ---
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		// Check if secret exists and matches.
 		$is_valid_bypass = ( ! empty( $bypass_secret ) && hash_equals( $bypass_secret, $param_secret ) );
@@ -230,7 +233,9 @@ class AgeWallet_Gating_Manager {
 		$is_verified = false;
 		// Use Helper to verify HMAC signature
 		if ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && class_exists('AgeWallet_Helpers') ) {
-			 $is_verified = AgeWallet_Helpers::instance()->verify_signed_cookie( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] );
+			 $is_verified = AgeWallet_Helpers::instance()->verify_signed_cookie(
+				sanitize_text_field( wp_unslash( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) )
+			);
 		}
 
 		if ( ! $should_restrict || $is_verified ) {
@@ -259,7 +264,9 @@ class AgeWallet_Gating_Manager {
 			$script_data['isOverlayActive'] = true;
 			$this->log_debug( 'Localizing script data including overlay HTML.' );
 
-			// Signal to add body class.
+			// Signal to add body class. Double-underscore prefix marks this as an internal,
+			// not-publicly-documented hook; plugin-check's regex misses the prefix, so annotate.
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 			add_filter( '__agewallet_is_gating_this_request', '__return_true' );
 
 			// HOOK: Allow developers to add or modify data passed to the front-end script.
@@ -319,7 +326,7 @@ class AgeWallet_Gating_Manager {
 				$path = wp_parse_url( $url, PHP_URL_PATH );
 			} else {
 				// Current Request Context.
-				$path = strtok( $_SERVER['REQUEST_URI'] ?? '', '?' );
+				$path = strtok( isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '', '?' );
 			}
 			$current_path_norm = trailingslashit( $path );
 			$excluded_paths    = array_map( 'trim', explode( ',', $excluded_paths_str ) );
@@ -415,7 +422,9 @@ class AgeWallet_Gating_Manager {
 				// (and we don't want to pay for the per-item meta reads on every page hit).
 				$is_verified = false;
 				if ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && class_exists( 'AgeWallet_Helpers' ) ) {
-					$is_verified = AgeWallet_Helpers::instance()->verify_signed_cookie( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] );
+					$is_verified = AgeWallet_Helpers::instance()->verify_signed_cookie(
+						sanitize_text_field( wp_unslash( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) )
+					);
 				}
 				if ( $is_verified ) {
 					$this->log_debug( 'Rule Check: WC checkout conditional-on-cart, visitor already verified — skipping cart inspection.' );
@@ -462,7 +471,7 @@ class AgeWallet_Gating_Manager {
 						$path = wp_parse_url( $url, PHP_URL_PATH );
 					} else {
 						// Current Request Context.
-						$path = strtok( $_SERVER['REQUEST_URI'] ?? '', '?' );
+						$path = strtok( isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '', '?' );
 					}
 					$current_path_norm = trailingslashit( $path );
 
@@ -527,6 +536,7 @@ class AgeWallet_Gating_Manager {
 	 * @since 0.1.0
 	 */
 	public function add_body_classes( $classes ) {
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- See add_filter() site; internal hook, double-underscore prefix.
 		if ( apply_filters( '__agewallet_is_gating_this_request', false ) ) {
 			$classes[] = 'agewallet-gated-pending';
 		}
@@ -580,7 +590,9 @@ class AgeWallet_Gating_Manager {
 
 		// Check for Signed Cookie using AgeWallet_Helpers
 		if ( isset( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) && class_exists('AgeWallet_Helpers') ) {
-			 if ( AgeWallet_Helpers::instance()->verify_signed_cookie( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) ) {
+			 if ( AgeWallet_Helpers::instance()->verify_signed_cookie(
+				sanitize_text_field( wp_unslash( $_COOKIE[ self::VERIFIED_COOKIE_NAME ] ) )
+			) ) {
 				 $this->log_debug( '[Gating Manager] Protected shortcode: User is verified (HMAC check), showing content.' );
 				 return do_shortcode( $content );
 			 }
@@ -934,9 +946,11 @@ class AgeWallet_Gating_Manager {
 		} else {
 			$log_entry = '[AgeWallet Plugin] [Gating Mgr] ' . $message;
 			if ( ! is_null( $context ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r -- Fallback debug formatter when central logger is unavailable; only runs under WP_DEBUG_LOG.
 				$log_entry .= ' Context: ' . print_r( $context, true );
 			}
-			@error_log( preg_replace( '/\s+/', ' ', trim( $log_entry ) ) );
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Fallback debug output when central logger is unavailable; only runs under WP_DEBUG_LOG.
+			error_log( preg_replace( '/\s+/', ' ', trim( $log_entry ) ) );
 		}
 	}
 

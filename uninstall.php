@@ -14,6 +14,12 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
+// Loop-local file-system variables ($site_ids, $site_id, $entries, $entry, $path) are introduced
+// inside the multisite iteration / rrmdir helper. They do not leak to caller scope and they only
+// live for the lifetime of the uninstall request. The phpcs prefix rule would force renaming them
+// to $agewallet_* without functional benefit.
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
+
 /**
  * Delete every option whose name starts with the agewallet_ prefix.
  *
@@ -24,12 +30,17 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
  * @param wpdb $wpdb WordPress database handle.
  */
 function agewallet_uninstall_delete_options( $wpdb ) {
+	// One-shot uninstall pass: prefix-pattern DELETE is the canonical shape for purging plugin
+	// options. delete_option() per key would mean enumerating ~30 names and would still hit the
+	// same writes plus extra read overhead. No caching concern at uninstall time.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 	$wpdb->query(
 		"DELETE FROM {$wpdb->options} WHERE option_name LIKE 'agewallet\\_%'"
 	);
 
 	// Transients live as options named '_transient_<key>' and
 	// '_transient_timeout_<key>'. Catch both shapes.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 	$wpdb->query(
 		"DELETE FROM {$wpdb->options}
 		 WHERE option_name LIKE '\\_transient\\_agewallet\\_%'
@@ -105,11 +116,16 @@ function agewallet_uninstall_rrmdir( $dir ) {
 		if ( is_dir( $path ) && ! is_link( $path ) ) {
 			agewallet_uninstall_rrmdir( $path );
 		} else {
-			@unlink( $path );
+			wp_delete_file( $path );
 		}
 	}
 
-	@rmdir( $dir );
+	// WP_Filesystem is not guaranteed to be initialised during uninstall (it normally requires
+	// admin context + filesystem credentials), so a direct rmdir on our own scoped cache dir
+	// is the pragmatic choice. The $dir argument is constrained by remove_cache_dir() to live
+	// inside the uploads root.
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.rmdir_rmdir
+	@rmdir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 }
 
 global $wpdb;

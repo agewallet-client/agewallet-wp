@@ -212,7 +212,19 @@ class AgeWallet_Admin {
 
 		// Section 2: Developer Logging
 		add_settings_section( 'aw_sec_logging', __( 'Developer Tools', 'agewallet' ), array( $this, 'render_logging_section_description' ), 'agewallet-cache-control' );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_DEBUG_MODE, __( 'Enable Logging', 'agewallet' ), array( $this, 'render_checkbox' ), 'agewallet-cache-control', 'aw_sec_logging', array( 'label_for' => AgeWalletOIDCClientPro::OPT_DEBUG_MODE, 'label' => __( 'Enable plugin debug logging', 'agewallet' ), 'desc' => sprintf( wp_kses( __( 'Writes to <code>%s</code>.', 'agewallet' ), array( 'code' => array() ) ), 'wp-content/debug.log' ) ) );
+		add_settings_field(
+			AgeWalletOIDCClientPro::OPT_DEBUG_MODE,
+			__( 'Enable Logging', 'agewallet' ),
+			array( $this, 'render_checkbox' ),
+			'agewallet-cache-control',
+			'aw_sec_logging',
+			array(
+				'label_for' => AgeWalletOIDCClientPro::OPT_DEBUG_MODE,
+				'label'     => __( 'Enable plugin debug logging', 'agewallet' ),
+				/* translators: %s: path to the WordPress debug log file. */
+				'desc'      => sprintf( wp_kses( __( 'Writes to <code>%s</code>.', 'agewallet' ), array( 'code' => array() ) ), 'wp-content/debug.log' ),
+			)
+		);
 	}
 
 	// --- Page Renderer Wrapper (Unified Layout) ---
@@ -246,7 +258,10 @@ class AgeWallet_Admin {
 						<form method="post" action="options.php" id="agewallet-settings-form">
 							<?php
 							settings_fields( $option_group );
-							do_settings_sections( $_GET['page'] );
+							// Admin page identifier from the WP-rendered menu link; not user-submitted form data, so no nonce applies.
+							// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+							$current_page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+							do_settings_sections( $current_page );
 							submit_button( __( 'Save Changes', 'agewallet' ) );
 							?>
 						</form>
@@ -387,6 +402,7 @@ class AgeWallet_Admin {
 
 	private function render_readme_error( $section ) {
 		echo '<div class="notice notice-error"><p>';
+		/* translators: %s: Name of the readme.txt section that could not be located (e.g., "Description"). */
 		printf( esc_html__( 'Error: Could not find the "== %s ==" section in the readme.txt file.', 'agewallet' ), esc_html( $section ) );
 		echo '</p></div>';
 	}
@@ -575,6 +591,7 @@ class AgeWallet_Admin {
 		$style = 'border: 1px solid #c3c4c7; background: #fff8e5; padding: 10px 15px; border-left-width: 4px; border-left-color: #d63638; margin-top: 20px;';
 		echo '<div style="' . esc_attr( $style ) . '">';
 		echo '<h4 style="margin-top:0;"><span class="dashicons dashicons-warning" style="color:#d63638; vertical-align: middle; margin-right: 5px;"></span>' . esc_html__( 'Developer Options', 'agewallet' ) . '</h4>';
+		/* translators: %s: path to the WordPress debug log file (e.g., wp-content/debug.log). */
 		echo '<p style="margin-bottom:0;">' . sprintf( wp_kses( __( '<strong>Warning:</strong> For debugging only. This will write detailed plugin activity to <code>%s</code>.', 'agewallet' ), array( 'code' => array(), 'strong' => array() ) ), 'wp-content/debug.log' ) . '</p>';
 		echo '</div>';
 	}
@@ -638,6 +655,7 @@ class AgeWallet_Admin {
 				'quicktags'     => true,
 			)
 		);
+		/* translators: %s: Plain-text default gate copy (HTML stripped) shown as the field's placeholder hint. */
 		echo '<p class="description">' . sprintf( wp_kses( __( 'Customize the text shown on the age verification gate. HTML is allowed. Default: "%s"', 'agewallet' ), array() ), esc_html( $this->get_default_copy( false ) ) ) . '</p>';
 	}
 
@@ -769,7 +787,7 @@ class AgeWallet_Admin {
 		$rows         = isset( $args['rows'] ) ? absint( $args['rows'] ) : 5;
 		$placeholder  = isset( $args['placeholder'] ) ? $args['placeholder'] : '';
 		echo '<div id="agewallet-blocked-paths-wrapper">';
-		printf( '<textarea id="%1$s" name="%1$s" class="%2$s" rows="%3$d" placeholder="%4$s">%5$s</textarea>', esc_attr( $option_name ), esc_attr( $class ), $rows, esc_attr( $placeholder ), esc_textarea( $value ) );
+		printf( '<textarea id="%1$s" name="%1$s" class="%2$s" rows="%3$d" placeholder="%4$s">%5$s</textarea>', esc_attr( $option_name ), esc_attr( $class ), absint( $rows ), esc_attr( $placeholder ), esc_textarea( $value ) );
 		if ( isset( $args['desc'] ) ) {
 			echo '<p class="description">' . wp_kses( $args['desc'], array( 'code' => array() ) ) . '</p>';
 		}
@@ -783,7 +801,7 @@ class AgeWallet_Admin {
 		$rows        = isset( $args['rows'] ) ? absint( $args['rows'] ) : 3;
 		$placeholder = isset( $args['placeholder'] ) ? $args['placeholder'] : '';
 
-		printf( '<textarea id="%1$s" name="%1$s" class="%2$s" rows="%3$d" placeholder="%4$s">%5$s</textarea>', esc_attr( $option_name ), esc_attr( $class ), $rows, esc_attr( $placeholder ), esc_textarea( $value ) );
+		printf( '<textarea id="%1$s" name="%1$s" class="%2$s" rows="%3$d" placeholder="%4$s">%5$s</textarea>', esc_attr( $option_name ), esc_attr( $class ), absint( $rows ), esc_attr( $placeholder ), esc_textarea( $value ) );
 		if ( isset( $args['desc'] ) ) {
 			echo '<p class="description">' . wp_kses( $args['desc'], array( 'code' => array() ) ) . '</p>';
 		}
@@ -1120,6 +1138,7 @@ class AgeWallet_Admin {
 	private function get_default_copy( $include_html = true ) {
 		$partner_name = 'AgeWallet™';
 		$partner_link = '<a href="https://www.agewallet.com" target="_blank" rel="noopener">' . $partner_name . '</a>';
+		/* translators: %s: Verification partner name, either plain text "AgeWallet™" or an anchor link to agewallet.com (depending on caller). */
 		$text_format  = __( 'You must be 18+ to view this content (or meet the minimum age required by your local jurisdiction). By selecting “I Agree,” you confirm that you meet the minimum age requirement and consent to verification by our partner, %s. If you do not meet the minimum age requirement or do not agree, please select “I Disagree.”', 'agewallet' );
 		return sprintf( $text_format, $include_html ? $partner_link : $partner_name );
 	}
@@ -1132,7 +1151,10 @@ class AgeWallet_Admin {
 		}
 		if ( class_exists( 'AgeWallet_API' ) ) {
 			$count = AgeWallet_API::instance()->clear_all_cache();
-			wp_send_json_success( sprintf( __( 'Cache purged successfully! %d files deleted.', 'agewallet' ), $count ) );
+			wp_send_json_success(
+				/* translators: %d: Number of cached HTML files that were just deleted. */
+				sprintf( __( 'Cache purged successfully! %d files deleted.', 'agewallet' ), (int) $count )
+			);
 		} else {
 			wp_send_json_error( __( 'API Class not loaded.', 'agewallet' ) );
 		}
@@ -1144,8 +1166,12 @@ class AgeWallet_Admin {
 			wp_send_json_error( 'Permission denied.' );
 		}
 
-		$taxonomy = isset( $_GET['taxonomy'] ) ? sanitize_text_field( $_GET['taxonomy'] ) : '';
-		$term_search = isset( $_GET['term'] ) ? sanitize_text_field( $_GET['term'] ) : '';
+		// AJAX endpoint hit by the admin's term-search jQuery; capability check above
+		// is the real gate. Query params here are search filters, not a form submission.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$taxonomy    = isset( $_GET['taxonomy'] ) ? sanitize_text_field( wp_unslash( $_GET['taxonomy'] ) ) : '';
+		$term_search = isset( $_GET['term'] ) ? sanitize_text_field( wp_unslash( $_GET['term'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		if ( empty( $taxonomy ) || empty( $term_search ) ) {
 			wp_send_json_error( 'Missing parameters.' );

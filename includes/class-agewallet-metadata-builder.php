@@ -160,7 +160,7 @@ if ( ! class_exists( 'AgeWallet_Metadata_Builder' ) ) {
 					if ( ! isset( $_SERVER['REQUEST_URI'] ) ) {
 						return null;
 					}
-					return (string) strtok( wp_unslash( $_SERVER['REQUEST_URI'] ), '?' );
+					return (string) strtok( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ), '?' );
 
 				case 'page_type':
 					return self::classify_page_type();

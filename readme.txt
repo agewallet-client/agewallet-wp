@@ -1,10 +1,10 @@
 === AgeWallet OIDC Client ===
 Contributors: agewallet, cookedbiscuits
 Tags: age verification, age gate, agewallet, content restriction, oidc
-Requires at least: 5.8
+Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.2
+Stable tag: 1.5.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -355,6 +355,10 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 This plugin is licensed under the GNU General Public License v2.0 or later. A copy of the license is included in `LICENSE.txt` and is available at https://www.gnu.org/licenses/gpl-2.0.html.
 
 == Changelog ==
+
+= 1.5.3 =
+* Security & Quality: Comprehensive cleanup pass driven by the WordPress.org Plugin Check tool. All `$_GET`, `$_SERVER`, and `$_COOKIE` reads now go through `wp_unslash()` + appropriate `sanitize_*()` wrappers. All translated output is escaped (`esc_html__()` / `esc_url()` / etc.). Translator comments added to every `__()`/`esc_html__()` call that uses placeholders, and ordered-placeholder syntax adopted where multiple placeholders appear. Direct `unlink()` calls replaced with `wp_delete_file()`; `strip_tags()` replaced with `wp_strip_all_tags()`. Template variables prefixed (`$aw_*`). Plugin's own debug logging routed through a centralised helper that respects `OPT_DEBUG_MODE`, replacing scattered `error_log()` calls. Removed manual `load_plugin_textdomain()` call (no longer needed under WP 4.6+).
+* Compatibility: Minimum WordPress version raised from 5.8 to 6.0. The plugin's OIDC handler uses `str_ends_with()`, which only exists in WP 5.9 / PHP 8.0 and later; 6.0 is also the floor WP.org recommends for active plugins.
 
 = 1.5.2 =
 * Maintenance: WooCommerce Marketplace prep. Added the standard `WC requires at least` and `WC tested up to` plugin header lines, and declared High-Performance Order Storage (HPOS) compatibility. The plugin's WooCommerce integration only reads cart and product data, so HPOS compatibility is safe.

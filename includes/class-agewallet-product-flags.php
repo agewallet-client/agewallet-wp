@@ -124,9 +124,14 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 		 */
 		public function save_product_meta( $post_id ) {
 			$key = AgeWallet_WooCommerce::META_KEY_PRODUCT_REGULATED_STATUS;
+			// Hooks into WooCommerce's woocommerce_admin_process_product_object, which fires inside
+			// the core product-save flow after WC has already verified the standard product-edit
+			// nonce and the user's edit_product capability. No separate nonce required here.
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing
 			if ( ! isset( $_POST[ $key ] ) ) {
 				return;
 			}
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing
 			$input   = sanitize_text_field( wp_unslash( $_POST[ $key ] ) );
 			$allowed = array( 'not_regulated', 'regulated', 'override_not_regulated' );
 			$value   = in_array( $input, $allowed, true ) ? $input : 'not_regulated';
@@ -173,6 +178,9 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 		 */
 		public function save_term_meta( $term_id ) {
 			$key   = AgeWallet_WooCommerce::META_KEY_TERM_REGULATED;
+			// Hooks into WP core's edited_{taxonomy} / create_{taxonomy} actions, which fire after
+			// core has verified the taxonomy-edit nonce and capability. No separate nonce required.
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing
 			$value = isset( $_POST[ $key ] ) && '1' === $_POST[ $key ] ? '1' : '';
 			if ( '1' === $value ) {
 				update_term_meta( $term_id, $key, '1' );

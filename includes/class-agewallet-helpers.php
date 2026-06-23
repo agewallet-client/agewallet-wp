@@ -65,7 +65,8 @@
             $log_entry = '[AgeWallet Plugin] ' . $message;
             if ( ! is_null($context) ) {
                 if ( is_array($context) || is_object($context) ) {
-                    // Use print_r for arrays/objects, remove excessive whitespace
+                    // Use print_r for arrays/objects, remove excessive whitespace.
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r -- This is the central logging facility; print_r is intentional here for flattening structured context.
                     $context_str = preg_replace('/\s+/', ' ', print_r($context, true));
                     $log_entry .= ' | Context: ' . $context_str;
                 } else {
@@ -81,6 +82,7 @@
             // Add timestamp and newline
             $formatted_log_entry = '[' . gmdate('d-M-Y H:i:s') . ' UTC] ' . $log_entry . PHP_EOL;
 
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Final destination of the plugin's centralised, debug-mode-gated logger. All other log calls in the codebase route through this method.
             @error_log($formatted_log_entry, 3, $log_file); // Type 3 = append to file
             // --- END DESTINATION LOGIC ---
         }
@@ -103,13 +105,15 @@
             $log_entry = '[AgeWallet Plugin] ' . $message; // No class context prefix here
             if ( ! is_null($context) ) {
                 if ( is_array($context) || is_object($context) ) {
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r -- Central logging helper; print_r flattens context for inline log entries.
                     $context_str = preg_replace('/\s+/', ' ', print_r($context, true));
                     $log_entry .= ' | Context: ' . $context_str;
                 } else {
                     $log_entry .= ' | Context: ' . $context;
                 }
             }
-            // Use default error_log, which will respect WP_DEBUG_LOG's destination
+            // Use default error_log, which will respect WP_DEBUG_LOG's destination.
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Static logger for activation/deactivation hooks; only fires when WP_DEBUG_LOG is on.
             @error_log(preg_replace('/\s+/', ' ', trim($log_entry)));
         }
 
@@ -296,7 +300,7 @@
             $cookie_name  = defined( 'AgeWallet_Gating_Manager::VERIFIED_COOKIE_NAME' )
                 ? AgeWallet_Gating_Manager::VERIFIED_COOKIE_NAME
                 : 'agewallet_verified';
-            $cookie_value = $_COOKIE[ $cookie_name ] ?? '';
+            $cookie_value = isset( $_COOKIE[ $cookie_name ] ) ? sanitize_text_field( wp_unslash( $_COOKIE[ $cookie_name ] ) ) : '';
 
             if ( empty( $cookie_value ) || strpos( $cookie_value, '.' ) === false ) {
                 return null;
@@ -397,27 +401,32 @@
         */
         public function get_current_url() {
             // Determine Scheme (HTTPS check, considering proxies)
-            $scheme = 'http';
-            if ( (! empty($_SERVER['HTTPS']) && 'off' !== strtolower($_SERVER['HTTPS']))
-                || (isset($_SERVER['SERVER_PORT']) && 443 === (int) $_SERVER['SERVER_PORT'])
-                || (! empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && 'https' === strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']))
+            $scheme       = 'http';
+            $https_raw    = isset( $_SERVER['HTTPS'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTPS'] ) ) : '';
+            $forwarded    = isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ) : '';
+            $server_port  = isset( $_SERVER['SERVER_PORT'] ) ? (int) $_SERVER['SERVER_PORT'] : 0;
+            if ( ( ! empty( $https_raw ) && 'off' !== strtolower( $https_raw ) )
+                || 443 === $server_port
+                || ( ! empty( $forwarded ) && 'https' === strtolower( $forwarded ) )
             ) {
                 $scheme = 'https';
             }
 
-            // Determine Host (Prefer HTTP_HOST, fallback to SERVER_NAME)
-            $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? null;
+            // Determine Host (Prefer HTTP_HOST, fallback to SERVER_NAME).
+            $http_host_raw   = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '';
+            $server_name_raw = isset( $_SERVER['SERVER_NAME'] ) ? sanitize_text_field( wp_unslash( $_SERVER['SERVER_NAME'] ) ) : '';
+            $host = $http_host_raw ?: ( $server_name_raw ?: null );
             if ( ! $host ) {
-                $this->log('Warning: Could not determine host, falling back to host from home_url().');
-                $host = wp_parse_url(home_url(), PHP_URL_HOST);
+                $this->log( 'Warning: Could not determine host, falling back to host from home_url().' );
+                $host = wp_parse_url( home_url(), PHP_URL_HOST );
             }
             if ( ! $host ) {
-                $this->log('ERROR: Could not determine host even from home_url(). Cannot construct URL.');
-                return home_url('/'); // Final fallback
+                $this->log( 'ERROR: Could not determine host even from home_url(). Cannot construct URL.' );
+                return home_url( '/' ); // Final fallback.
             }
 
-            // Get Request URI (includes path and query string)
-            $uri = $_SERVER['REQUEST_URI'] ?? '/';
+            // Get Request URI (includes path and query string).
+            $uri = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
 
             // Reconstruct the URL
             $current_url = $scheme . '://' . $host . $uri;

@@ -18,6 +18,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
+// The variables below are template-locals populated by the including handler at runtime; they
+// never escape this file's scope. Plugin Check's prefix rule treats every $var introduced in a
+// template as a "global" and would have us rename them all (cascading edits across the include
+// chain). Suppress the rule for this file's lifetime.
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
+
 // --- 1. Setup Data ---
 // Intelligent ID Detection: If this is an archive/search/home, set ID to 0.
 // This ensures the API looks in the /archives/ folder immediately.
@@ -43,15 +49,15 @@ $script_data = array(
 	'isStrictMode'     => true,
 	'currentPostId'    => $post_id,
 
-    // Pass URL and ID as query params.
-    // Note: gate.js sends a POST, so these params are technically query params on a POST request, which works fine.
+	// Pass URL and ID as query params.
+	// Note: gate.js sends a POST, so these params are technically query params on a POST request, which works fine.
 	'apiEndpoint'      => add_query_arg(
-        array(
-            'url' => urlencode( $current_full_url ),
-            'id'  => $post_id
-        ),
-        rest_url( 'agewallet/v1/content' )
-    ),
+		array(
+			'url' => rawurlencode( $current_full_url ),
+			'id'  => $post_id,
+		),
+		rest_url( 'agewallet/v1/content' )
+	),
 	'launchUrl'        => AgeWallet_Helpers::instance()->get_launch_url(),
 	'redirectUrl'      => $current_full_url,
 	'signedMetadata'   => ( class_exists( 'AgeWallet_Metadata_Builder' ) && ( $aw_md_value = AgeWallet_Metadata_Builder::build() ) )
@@ -75,10 +81,11 @@ $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-bod
 	<?php
 	/**
 	 * 1. Load the Plugin's Main Stylesheet
-	 * This ensures the Skeleton looks exactly like the Gate (colors, cards, shadows).
+	 * This template renders BEFORE the normal WP request lifecycle (Strict Mode short-circuits
+	 * the theme), so wp_enqueue_style() is not available. The inline <link> is intentional.
 	 */
 	?>
-	<link rel="stylesheet" id="agewallet-gate-style-css" href="<?php echo esc_url( AGEWALLET_PLUGIN_URL . 'assets/css/gate.css' ); ?>?ver=<?php echo esc_attr( AGEWALLET_VERSION ); ?>" type="text/css" media="all" />
+	<link rel="stylesheet" id="agewallet-gate-style-css" href="<?php echo esc_url( AGEWALLET_PLUGIN_URL . 'assets/css/gate.css' ); ?>?ver=<?php echo esc_attr( AGEWALLET_VERSION ); ?>" type="text/css" media="all" /><?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- Strict-mode template runs before wp_enqueue_scripts; no enqueue queue is available. ?>
 
 	<?php
 	/**
@@ -88,7 +95,7 @@ $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-bod
 	if ( ! empty( $custom_css ) ) :
 		?>
 		<style type="text/css" id="agewallet-custom-css">
-			<?php echo strip_tags( $custom_css ); // Safe injection of CSS ?>
+			<?php echo wp_strip_all_tags( $custom_css ); // Safe injection of CSS ?>
 		</style>
 	<?php endif; ?>
 
@@ -136,7 +143,7 @@ $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-bod
 					 src="<?php echo esc_url( $logo_src ); ?>"
 					 alt="<?php esc_attr_e( 'Logo', 'agewallet' ); ?>"
 					 <?php if ( $logo_width > 0 ) : ?>
-						 style="width:<?php echo intval( $logo_width ); ?>px; max-width:100%; height:auto;"
+						 style="width:<?php echo (int) $logo_width; ?>px; max-width:100%; height:auto;"
 					 <?php else : ?>
 						 style="max-width:100%; height:auto;"
 					 <?php endif; ?>
@@ -162,8 +169,10 @@ $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-bod
 
 	<div id="aw-gate-ui" style="display:none;">
 		<?php
-		// Retrieve the standard gate HTML from the manager
-		echo AgeWallet_Gating_Manager::instance()->get_gate_html();
+		// Retrieve the standard gate HTML from the manager. The HTML is assembled internally
+		// by AgeWallet_Gating_Manager using esc_html()/esc_attr() on every dynamic part; the
+		// surrounding markup is plugin-controlled, not user input.
+		echo AgeWallet_Gating_Manager::instance()->get_gate_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Pre-escaped plugin-controlled markup.
 		?>
 	</div>
 
@@ -180,7 +189,7 @@ $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-bod
 	/* ]]> */
 </script>
 
-<script type="text/javascript" src="<?php echo esc_url( AGEWALLET_PLUGIN_URL . 'assets/js/gate.js' ); ?>?ver=<?php echo esc_attr( AGEWALLET_VERSION ); ?>"></script>
+<script type="text/javascript" src="<?php echo esc_url( AGEWALLET_PLUGIN_URL . 'assets/js/gate.js' ); ?>?ver=<?php echo esc_attr( AGEWALLET_VERSION ); ?>"></script><?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Strict-mode template runs before wp_enqueue_scripts; no enqueue queue is available. ?>
 
 <?php
 // Developer Hook for Footer Scripts (Analytics, etc)

@@ -2,11 +2,11 @@
 /**
  * Plugin Name: AgeWallet OIDC Client
  * Description: Secure AgeWallet OIDC flow for WordPress using transients and client-side gating for cache compatibility.
- * Version:     1.5.2
+ * Version:     1.5.3
  * Author:      AgeWallet LLC
  * Author URI:  https://agewallet.com
  * Text Domain: agewallet
- * Requires at least: 5.8
+ * Requires at least: 6.0
  * Requires PHP: 7.4
  * WC requires at least: 7.0
  * WC tested up to: 9.5
@@ -31,10 +31,26 @@ add_action( 'before_woocommerce_init', function () {
 } );
 
 // Define essential plugin constants.
-define( 'AGEWALLET_VERSION', '1.5.2' );
+define( 'AGEWALLET_VERSION', '1.5.3' );
 define( 'AGEWALLET_PLUGIN_FILE', __FILE__ );
 define( 'AGEWALLET_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGEWALLET_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+
+/**
+ * Module-level debug logger used by activate_plugin / deactivate_plugin static
+ * hooks and the bootstrap code outside the main class scope. Routes through
+ * AgeWallet_Helpers::log() when available so output is gated by the plugin's
+ * own debug-mode option (see OPT_DEBUG_MODE); silently no-ops otherwise. This
+ * keeps log calls out of direct error_log() use, which the WordPress Plugin
+ * Check tool flags as production debug code.
+ *
+ * @param string $message Already-prefixed message (caller includes its own tag).
+ */
+function agewallet_debug_log( $message ) {
+	if ( class_exists( 'AgeWallet_Helpers' ) && method_exists( AgeWallet_Helpers::instance(), 'log' ) ) {
+		AgeWallet_Helpers::instance()->log( $message );
+	}
+}
 
 
 /**
@@ -250,8 +266,9 @@ final class AgeWalletOIDCClientPro {
 		$this->log_debug( 'init_plugin started (hooked on plugins_loaded).' );
 		// --- END DEBUG LOGGING ---
 
-		// Load text domain for localization
-		load_plugin_textdomain( 'agewallet', false, dirname( plugin_basename( AGEWALLET_PLUGIN_FILE ) ) . '/languages/' );
+		// Note: load_plugin_textdomain() is no longer called manually since WP 4.6 —
+		// WordPress.org auto-loads translations under the plugin slug. Removed per
+		// the Plugin Check tool's recommendation.
 
 		// Instantiate helper class (ensure it's available early)
 		if ( class_exists( 'AgeWallet_Helpers' ) ) {
@@ -322,7 +339,7 @@ final class AgeWalletOIDCClientPro {
 	 */
 	public static function activate_plugin() {
 		// --- DEBUG LOGGING ---
-		error_log( '[AgeWallet Plugin] Static activate_plugin hook fired.' );
+		agewallet_debug_log( '[AgeWallet Plugin] Static activate_plugin hook fired.' );
 		// --- END DEBUG LOGGING ---
 
 		// Manually include helpers if needed for activation, as instance doesn't exist yet.
@@ -331,12 +348,12 @@ final class AgeWalletOIDCClientPro {
 			require_once $helpers_file;
 			if ( class_exists( 'AgeWallet_Helpers' ) ) {
 				AgeWallet_Helpers::instance()->ensure_hmac_secret(); // Ensure secret is generated
-				error_log( '[AgeWallet Plugin] HMAC secret checked/generated during activation.' );
+				agewallet_debug_log( '[AgeWallet Plugin] HMAC secret checked/generated during activation.' );
 			} else {
-				error_log( '[AgeWallet Plugin] ERROR during activation: AgeWallet_Helpers class not found in included file.' );
+				agewallet_debug_log( '[AgeWallet Plugin] ERROR during activation: AgeWallet_Helpers class not found in included file.' );
 			}
 		} else {
-			error_log( '[AgeWallet Plugin] ERROR during activation: Helpers file not found at ' . $helpers_file );
+			agewallet_debug_log( '[AgeWallet Plugin] ERROR during activation: Helpers file not found at ' . $helpers_file );
 		}
 
 		// Manually include OIDC Handler to ensure rules are added before flush
@@ -351,17 +368,17 @@ final class AgeWalletOIDCClientPro {
 				// Instantiate briefly just to call the rule registration (can't rely on init hook during activation)
 				$handler_instance = AgeWallet_OIDC_Handler::instance(); // Get instance
 				$handler_instance->register_rewrite_rules(); // Register rules in memory
-				error_log( '[AgeWallet Plugin] Rewrite rules registered in memory during activation.' );
+				agewallet_debug_log( '[AgeWallet Plugin] Rewrite rules registered in memory during activation.' );
 			} else {
-				error_log( '[AgeWallet Plugin] ERROR during activation: AgeWallet_OIDC_Handler class not found.' );
+				agewallet_debug_log( '[AgeWallet Plugin] ERROR during activation: AgeWallet_OIDC_Handler class not found.' );
 			}
 		} else {
-			error_log( '[AgeWallet Plugin] ERROR during activation: OIDC Handler file not found.' );
+			agewallet_debug_log( '[AgeWallet Plugin] ERROR during activation: OIDC Handler file not found.' );
 		}
 
 		flush_rewrite_rules(); // Save rules to the database/htaccess
 		// --- DEBUG LOGGING ---
-		error_log( '[AgeWallet Plugin] Rewrite rules flushed during activation.' );
+		agewallet_debug_log( '[AgeWallet Plugin] Rewrite rules flushed during activation.' );
 		// --- END DEBUG LOGGING ---
 
 		// HOOK: Allow other plugins to perform actions on activation.
@@ -377,7 +394,7 @@ final class AgeWalletOIDCClientPro {
 	 */
 	public static function deactivate_plugin() {
 		// --- DEBUG LOGGING ---
-		error_log( '[AgeWallet Plugin] Static deactivate_plugin hook fired.' );
+		agewallet_debug_log( '[AgeWallet Plugin] Static deactivate_plugin hook fired.' );
 		// --- END DEBUG LOGGING ---
 
 		// Clear scheduled cron event
@@ -385,7 +402,7 @@ final class AgeWalletOIDCClientPro {
 
 		flush_rewrite_rules(); // Remove/Save rules
 		// --- DEBUG LOGGING ---
-		error_log( '[AgeWallet Plugin] Rewrite rules flushed during deactivation.' );
+		agewallet_debug_log( '[AgeWallet Plugin] Rewrite rules flushed during deactivation.' );
 		// --- END DEBUG LOGGING ---
 
 		// HOOK: Allow other plugins to perform actions on deactivation.
@@ -474,7 +491,7 @@ function AGEWALLET() {
 	// --- DEBUG LOGGING ---
 	// This initial log will run if WP_DEBUG_LOG is on, before our setting is checked.
 	if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-		error_log( '[AgeWallet Plugin] === AGEWALLET() function called ===' );
+		agewallet_debug_log( '[AgeWallet Plugin] === AGEWALLET() function called ===' );
 	}
 	// --- END DEBUG LOGGING ---
 	return AgeWalletOIDCClientPro::instance();
@@ -483,13 +500,13 @@ function AGEWALLET() {
 // Get the plugin running.
 // --- DEBUG LOGGING ---
 if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-	error_log( '[AgeWallet Plugin] Calling AGEWALLET() to instantiate plugin.' );
+	agewallet_debug_log( '[AgeWallet Plugin] Calling AGEWALLET() to instantiate plugin.' );
 }
 // --- END DEBUG LOGGING ---
 AGEWALLET();
 
 // --- DEBUG LOGGING ---
 if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-	error_log( '[AgeWallet Plugin] Main plugin file finished loading.' );
+	agewallet_debug_log( '[AgeWallet Plugin] Main plugin file finished loading.' );
 }
 // --- END DEBUG LOGGING ---

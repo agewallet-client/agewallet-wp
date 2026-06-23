@@ -203,12 +203,13 @@
       */
      public function handle_redirects() {
          // Get the path part of the request URI, removing query string and trailing slash if present.
-         $current_path = strtok($_SERVER['REQUEST_URI'] ?? '', '?');
-         if ($current_path !== '/' && str_ends_with($current_path, '/')) {
-             $current_path = substr($current_path, 0, -1);
+         $raw_uri      = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+         $current_path = strtok( $raw_uri, '?' );
+         if ( '/' !== $current_path && str_ends_with( $current_path, '/' ) ) {
+             $current_path = substr( $current_path, 0, -1 );
          }
 
-         $this->log_debug('[OIDC Handler] handle_redirects called.', ['raw_uri' => $_SERVER['REQUEST_URI'] ?? 'N/A', 'parsed_path' => $current_path]);
+         $this->log_debug( '[OIDC Handler] handle_redirects called.', array( 'raw_uri' => $raw_uri ?: 'N/A', 'parsed_path' => $current_path ) );
 
          $matched_handler = null;
          // --- Direct URI Check First (More reliable early) ---
@@ -275,6 +276,11 @@
          $nonce = AgeWallet_Helpers::instance()->generate_random_hex(32); // Nonce for ID token replay protection
 
          // Determine the URL to redirect back to after successful verification.
+         // The $_GET reads in this method are OIDC-flow routing parameters (not
+         // user-submitted form data); each is validated downstream — `redirect_to`
+         // via wp_validate_redirect(), `md` / `aw_o` via HMAC signature
+         // verification. Nonce checks don't apply to the OIDC redirect flow.
+         // phpcs:disable WordPress.Security.NonceVerification.Recommended
          $redirect_to = home_url('/'); // Default to home
          if ( ! empty($_GET['redirect_to']) ) {
              // Get the raw value and decode it first
@@ -284,7 +290,7 @@
                   $redirect_to = wp_sanitize_redirect( $potential_redirect );
                   $this->log_debug('[OIDC Handler] Using redirect_to parameter for final destination.', ['url' => $redirect_to]);
              } else {
-                  $this->log_debug('[OIDC Handler] Invalid redirect_to parameter provided during launch.', ['redirect_to' => $_GET['redirect_to']]);
+                  $this->log_debug('[OIDC Handler] Invalid redirect_to parameter provided during launch.', ['redirect_to' => $potential_redirect]);
              }
          } else {
              // Use current URL if no redirect_to param - safer than referer
@@ -354,14 +360,14 @@
          // cleanly with that.
          //
          // Return a string (max 4096 bytes) or null/empty to skip.
-         $signed_md   = isset( $_GET['md'] ) ? wp_unslash( $_GET['md'] ) : '';
+         $signed_md   = isset( $_GET['md'] ) ? sanitize_text_field( wp_unslash( $_GET['md'] ) ) : '';
          $base_value  = $signed_md ? AgeWallet_Helpers::instance()->verify_signed_metadata( $signed_md ) : null;
 
          // Decode the signed origin marker (if present) so filter callbacks can read
          // it via self::get_request_origin() to decide whether to attach context-specific
          // metadata (e.g., AgeWallet_WooCommerce::inject_checkout_metadata fires only
          // when this is 'checkout').
-         $signed_origin = isset( $_GET['aw_o'] ) ? wp_unslash( $_GET['aw_o'] ) : '';
+         $signed_origin = isset( $_GET['aw_o'] ) ? sanitize_text_field( wp_unslash( $_GET['aw_o'] ) ) : '';
          $origin        = $signed_origin ? AgeWallet_Helpers::instance()->verify_signed_metadata( $signed_origin ) : '';
          self::$request_origin = ( is_string( $origin ) && '' !== $origin ) ? $origin : null;
 
@@ -406,15 +412,20 @@
       * @since 0.1.0
       */
      private function handle_callback() {
+         // OIDC callback from the identity provider; query params (state, code,
+         // error, etc.) are validated via state-transient lookup below — not via
+         // form-nonce. Suppress nonce-recommendation warning for this method.
+         // phpcs:disable WordPress.Security.NonceVerification.Recommended
          // *** Manually parse the query string from REQUEST_URI ***
          // This avoids issues with WordPress unsetting the 'error' query var.
-         $query_string = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_QUERY);
+         $raw_uri      = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+         $query_string = wp_parse_url( $raw_uri, PHP_URL_QUERY );
          $query_params = array();
          if ( $query_string ) {
-             parse_str($query_string, $query_params);
+             parse_str( $query_string, $query_params );
          }
 
-         $this->log_debug('[OIDC Handler] Inside handle_callback.', ['manual_query_params' => $query_params, 'original_get' => $_GET]);
+         $this->log_debug( '[OIDC Handler] Inside handle_callback.', array( 'manual_query_params' => $query_params, 'original_get' => $_GET ) );
          nocache_headers(); // Prevent caching of this sensitive endpoint
 
          // --- 1. Basic Security Checks & Parameter Retrieval ---
@@ -443,7 +454,7 @@
              wp_die(
                  esc_html__('Your verification session has expired or is invalid (state mismatch). Please try initiating the verification again.', 'agewallet'),
                  esc_html__('Verification Error', 'agewallet'),
-                 array('response' => 400, 'link_text' => __('Return to site', 'agewallet'), 'link_url' => home_url('/')) // Bad Request
+                 array('response' => 400, 'link_text' => esc_html__( 'Return to site', 'agewallet' ), 'link_url' => esc_url( home_url( '/' ) )) // Bad Request
              );
          }
 
@@ -498,11 +509,12 @@
                      array('response' => 403, 'link_text' => esc_html__('Return to previous page', 'agewallet'), 'back_link' => true)
                   );
              } else {
-                  // Other OIDC errors (invalid_request, server_error etc.)
+                  // Other OIDC errors (invalid_request, server_error etc.).
+                  /* translators: 1: Human-readable error description from the identity provider. 2: Machine-readable error code. */
                   wp_die(
-                     sprintf(__('Age verification failed: %s [%s]', 'agewallet'), esc_html($error_description ?: 'Unknown error'), esc_html($error)),
-                     esc_html__('Verification Error', 'agewallet'),
-                     array('response' => 400)
+                     sprintf( esc_html__( 'Age verification failed: %1$s [%2$s]', 'agewallet' ), esc_html( $error_description ?: 'Unknown error' ), esc_html( $error ) ),
+                     esc_html__( 'Verification Error', 'agewallet' ),
+                     array( 'response' => 400 )
                   );
              }
          }
@@ -564,10 +576,11 @@
          // --- 6. Handle Token Response ---
          if ( is_wp_error($response) ) {
              $this->log_debug('[OIDC Handler] Token exchange failed (wp_error).', ['error_code' => $response->get_error_code(), 'error_message' => $response->get_error_message()]);
+             /* translators: %s: WP_Error code from the failed token-endpoint request. */
              wp_die(
-                 sprintf(__('Could not communicate with the verification server (%s).', 'agewallet'), esc_html($response->get_error_code())),
-                 esc_html__('Verification Error', 'agewallet'),
-                 array('response' => 502)
+                 sprintf( esc_html__( 'Could not communicate with the verification server (%s).', 'agewallet' ), esc_html( $response->get_error_code() ) ),
+                 esc_html__( 'Verification Error', 'agewallet' ),
+                 array( 'response' => 502 )
              );
          }
 
@@ -583,10 +596,11 @@
                  $error_details = $token_data['error_description'] ?? ($token_data['error'] ?? $error_details);
              }
              $this->log_debug('[OIDC Handler] Token exchange failed (API error).', ['details' => $error_details]);
+             /* translators: %s: Human-readable error description returned by the token endpoint. */
              wp_die(
-                 sprintf(__('Verification failed: %s', 'agewallet'), esc_html($error_details)),
-                 esc_html__('Verification Error', 'agewallet'),
-                 array('response' => $response_code >= 500 ? 502 : 400)
+                 sprintf( esc_html__( 'Verification failed: %s', 'agewallet' ), esc_html( $error_details ) ),
+                 esc_html__( 'Verification Error', 'agewallet' ),
+                 array( 'response' => $response_code >= 500 ? 502 : 400 )
              );
          }
 
@@ -611,10 +625,11 @@
 
          if ( is_wp_error($userinfo_response) ) {
               $this->log_debug('[OIDC Handler] Userinfo request failed (wp_error).', ['error_code' => $userinfo_response->get_error_code(), 'error_message' => $userinfo_response->get_error_message()]);
+              /* translators: %s: WP_Error code from the failed userinfo-endpoint request. */
               wp_die(
-                  sprintf(__('Could not confirm verification details (%s).', 'agewallet'), esc_html($userinfo_response->get_error_code())),
-                  esc_html__('Verification Error', 'agewallet'),
-                  array('response' => 502)
+                  sprintf( esc_html__( 'Could not confirm verification details (%s).', 'agewallet' ), esc_html( $userinfo_response->get_error_code() ) ),
+                  esc_html__( 'Verification Error', 'agewallet' ),
+                  array( 'response' => 502 )
               );
          }
 
@@ -631,7 +646,7 @@
                    wp_die(
                          esc_html__('Age verification completed, but the minimum age requirement was not met.', 'agewallet'),
                          esc_html__('Verification Failed', 'agewallet'),
-                         array('response' => 403, 'link_text' => __('Return to site', 'agewallet'), 'link_url' => home_url('/'))
+                         array('response' => 403, 'link_text' => esc_html__( 'Return to site', 'agewallet' ), 'link_url' => esc_url( home_url( '/' ) ))
                    );
               } else {
                    wp_die(
@@ -663,10 +678,14 @@
       * @since 0.1.0
       */
      private function handle_success() {
-         $this->log_debug('[OIDC Handler] Inside handle_success.', ['query_params' => $_GET]);
+         // Success endpoint reached via redirect from /agewallet/callback; the
+         // `awt` query param is a one-time transient lookup key, validated by
+         // get_transient() below — not form data, no nonce applies.
+         // phpcs:disable WordPress.Security.NonceVerification.Recommended
+         $this->log_debug( '[OIDC Handler] Inside handle_success.', array( 'query_params' => $_GET ) );
          nocache_headers();
 
-         $success_token = isset($_GET['awt']) ? preg_replace('/[^a-f0-9]/i', '', $_GET['awt']) : null;
+         $success_token = isset( $_GET['awt'] ) ? preg_replace( '/[^a-f0-9]/i', '', sanitize_text_field( wp_unslash( $_GET['awt'] ) ) ) : null;
          $transient_json = false;
          $was_valid_token = false;
 
@@ -875,9 +894,14 @@
          if ( class_exists('AgeWallet_Helpers') && method_exists(AgeWallet_Helpers::instance(), 'log') ) {
               AgeWallet_Helpers::instance()->log('[OIDC Handler] ' . $message, $context);
          } else {
+             // Fallback only fires when the Helpers class failed to load — a
+             // dependency-bootstrap failure mode. Direct error_log is acceptable
+             // because the centralised facility isn't available at this point.
              $log_entry = '[AgeWallet Plugin] [OIDC Handler] ' . $message;
-             if (!is_null($context)) { $log_entry .= ' Context: ' . print_r($context, true); }
-             @error_log(preg_replace('/\s+/', ' ', trim($log_entry)));
+             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r -- Fallback logger; print_r flattens structured context.
+             if ( ! is_null( $context ) ) { $log_entry .= ' Context: ' . print_r( $context, true ); }
+             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Defensive fallback when AgeWallet_Helpers can't be loaded; central debug facility is unavailable here.
+             @error_log( preg_replace( '/\s+/', ' ', trim( $log_entry ) ) );
          }
      }
 

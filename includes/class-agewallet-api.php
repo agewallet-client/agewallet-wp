@@ -254,7 +254,9 @@ class AgeWallet_API {
 
 		// Perform Cryptographic Verification
 		if ( class_exists( 'AgeWallet_Helpers' ) ) {
-			return AgeWallet_Helpers::instance()->verify_signed_cookie( $_COOKIE[ $cookie_name ] );
+			return AgeWallet_Helpers::instance()->verify_signed_cookie(
+				sanitize_text_field( wp_unslash( $_COOKIE[ $cookie_name ] ) )
+			);
 		}
 
 		return false;
@@ -295,6 +297,7 @@ class AgeWallet_API {
 
 		$args = array(
 			'timeout'   => 15,
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- This is WordPress's documented core filter for the wp_remote_get sslverify arg; renaming would break WP convention.
 			'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
 			'cookies'   => array(), // Request as a public, unauthenticated user
 		);
@@ -353,15 +356,24 @@ class AgeWallet_API {
 	 * Intercepts Loopback to set constants.
 	 */
 	public function handle_loopback_request() {
-		$param_secret = isset( $_GET['aw_cache_bypass'] ) ? stripslashes( $_GET['aw_cache_bypass'] ) : '';
+		// Cache-bypass key is an HMAC secret compared via hash_equals below; this is the auth
+		// mechanism for loopback requests originating from our own build_cache() call. No nonce
+		// is involved or needed — this is a server-to-server signed request, not a form submit.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$param_secret = isset( $_GET['aw_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['aw_cache_bypass'] ) ) : '';
 
 		if ( isset( $_GET['aw_cache_bypass'] ) && hash_equals( $this->bypass_secret, $param_secret ) ) {
+			// phpcs:enable WordPress.Security.NonceVerification.Recommended
 			if ( ! defined( 'AGEWALLET_CACHE_BUILDING' ) ) {
 				define( 'AGEWALLET_CACHE_BUILDING', true );
 			}
-			// Disable optimization plugins...
+			// Disable optimization plugins. DONOTROCKETOPTIMIZE and DONOTMINIFY are the
+			// canonical opt-out constants defined by WP Rocket / minification plugins; renaming
+			// them would defeat the purpose.
+			// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound
 			if ( ! defined( 'DONOTROCKETOPTIMIZE' ) ) define( 'DONOTROCKETOPTIMIZE', true );
 			if ( ! defined( 'DONOTMINIFY' ) ) define( 'DONOTMINIFY', true );
+			// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound
 		}
 	}
 
@@ -390,7 +402,8 @@ class AgeWallet_API {
 
 		$schedules['agewallet_custom_interval'] = array(
 			'interval' => $interval,
-			'display'  => sprintf( __( 'Every %d Seconds', 'agewallet' ), $interval ),
+			/* translators: %d: Cron interval expressed in whole seconds (configured by the admin in the AgeWallet settings). */
+			'display'  => sprintf( __( 'Every %d Seconds', 'agewallet' ), (int) $interval ),
 		);
 		return $schedules;
 	}
@@ -463,7 +476,7 @@ class AgeWallet_API {
 		$files = glob( $singular_dir . 'post-' . $post_id . '-*.html' );
 		if ( is_array( $files ) ) {
 			foreach ( $files as $file ) {
-				@unlink( $file );
+				wp_delete_file( $file );
 			}
 		}
 
@@ -473,7 +486,7 @@ class AgeWallet_API {
 		$archives    = glob( $archive_dir . '*.html' );
 		if ( is_array( $archives ) ) {
 			foreach ( $archives as $file ) {
-				@unlink( $file );
+				wp_delete_file( $file );
 			}
 		}
 
@@ -504,14 +517,20 @@ class AgeWallet_API {
 		$files = glob( $this->cache_dir . 'singular/*.html' );
 		if ( is_array( $files ) ) {
 			foreach ( $files as $file ) {
-				if ( @unlink( $file ) ) $count++;
+				wp_delete_file( $file );
+				if ( ! file_exists( $file ) ) {
+					$count++;
+				}
 			}
 		}
 		// Clear Archives
 		$files = glob( $this->cache_dir . 'archives/*.html' );
 		if ( is_array( $files ) ) {
 			foreach ( $files as $file ) {
-				if ( @unlink( $file ) ) $count++;
+				wp_delete_file( $file );
+				if ( ! file_exists( $file ) ) {
+					$count++;
+				}
 			}
 		}
 
