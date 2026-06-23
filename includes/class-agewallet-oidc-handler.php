@@ -510,9 +510,13 @@
                   );
              } else {
                   // Other OIDC errors (invalid_request, server_error etc.).
-                  /* translators: 1: Human-readable error description from the identity provider. 2: Machine-readable error code. */
                   wp_die(
-                     sprintf( esc_html__( 'Age verification failed: %1$s [%2$s]', 'agewallet' ), esc_html( $error_description ?: 'Unknown error' ), esc_html( $error ) ),
+                     sprintf(
+                        /* translators: 1: Human-readable error description from the identity provider. 2: Machine-readable error code. */
+                        esc_html__( 'Age verification failed: %1$s [%2$s]', 'agewallet' ),
+                        esc_html( $error_description ?: 'Unknown error' ),
+                        esc_html( $error )
+                     ),
                      esc_html__( 'Verification Error', 'agewallet' ),
                      array( 'response' => 400 )
                   );
@@ -576,9 +580,12 @@
          // --- 6. Handle Token Response ---
          if ( is_wp_error($response) ) {
              $this->log_debug('[OIDC Handler] Token exchange failed (wp_error).', ['error_code' => $response->get_error_code(), 'error_message' => $response->get_error_message()]);
-             /* translators: %s: WP_Error code from the failed token-endpoint request. */
              wp_die(
-                 sprintf( esc_html__( 'Could not communicate with the verification server (%s).', 'agewallet' ), esc_html( $response->get_error_code() ) ),
+                 sprintf(
+                     /* translators: %s: WP_Error code from the failed token-endpoint request. */
+                     esc_html__( 'Could not communicate with the verification server (%s).', 'agewallet' ),
+                     esc_html( $response->get_error_code() )
+                 ),
                  esc_html__( 'Verification Error', 'agewallet' ),
                  array( 'response' => 502 )
              );
@@ -596,9 +603,12 @@
                  $error_details = $token_data['error_description'] ?? ($token_data['error'] ?? $error_details);
              }
              $this->log_debug('[OIDC Handler] Token exchange failed (API error).', ['details' => $error_details]);
-             /* translators: %s: Human-readable error description returned by the token endpoint. */
              wp_die(
-                 sprintf( esc_html__( 'Verification failed: %s', 'agewallet' ), esc_html( $error_details ) ),
+                 sprintf(
+                     /* translators: %s: Human-readable error description returned by the token endpoint. */
+                     esc_html__( 'Verification failed: %s', 'agewallet' ),
+                     esc_html( $error_details )
+                 ),
                  esc_html__( 'Verification Error', 'agewallet' ),
                  array( 'response' => $response_code >= 500 ? 502 : 400 )
              );
@@ -625,9 +635,12 @@
 
          if ( is_wp_error($userinfo_response) ) {
               $this->log_debug('[OIDC Handler] Userinfo request failed (wp_error).', ['error_code' => $userinfo_response->get_error_code(), 'error_message' => $userinfo_response->get_error_message()]);
-              /* translators: %s: WP_Error code from the failed userinfo-endpoint request. */
               wp_die(
-                  sprintf( esc_html__( 'Could not confirm verification details (%s).', 'agewallet' ), esc_html( $userinfo_response->get_error_code() ) ),
+                  sprintf(
+                      /* translators: %s: WP_Error code from the failed userinfo-endpoint request. */
+                      esc_html__( 'Could not confirm verification details (%s).', 'agewallet' ),
+                      esc_html( $userinfo_response->get_error_code() )
+                  ),
                   esc_html__( 'Verification Error', 'agewallet' ),
                   array( 'response' => 502 )
               );

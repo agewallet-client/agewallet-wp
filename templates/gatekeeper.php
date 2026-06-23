@@ -95,7 +95,12 @@ $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-bod
 	if ( ! empty( $custom_css ) ) :
 		?>
 		<style type="text/css" id="agewallet-custom-css">
-			<?php echo wp_strip_all_tags( $custom_css ); // Safe injection of CSS ?>
+			<?php
+			// Admin-only setting (capability-gated when written). Output goes inside a <style>
+			// element; wp_strip_all_tags() removes any HTML/script that could break out, leaving
+			// raw CSS which has no XSS surface inside <style>.
+			echo wp_strip_all_tags( $custom_css ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Sanitised CSS inside a <style> tag; no further escaping applies.
+			?>
 		</style>
 	<?php endif; ?>
 

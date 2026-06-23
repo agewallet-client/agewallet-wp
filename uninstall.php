@@ -124,8 +124,8 @@ function agewallet_uninstall_rrmdir( $dir ) {
 	// admin context + filesystem credentials), so a direct rmdir on our own scoped cache dir
 	// is the pragmatic choice. The $dir argument is constrained by remove_cache_dir() to live
 	// inside the uploads root.
-	// phpcs:ignore WordPress.WP.AlternativeFunctions.rmdir_rmdir
-	@rmdir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir,WordPress.PHP.NoSilencedErrors.Discouraged
+	@rmdir( $dir );
 }
 
 global $wpdb;
