@@ -106,11 +106,11 @@ class AgeWallet_Admin {
 			array( $this, 'render_appearance_page' )
 		);
 
-		// 6. Step 4: Scripts
+		// 6. Step 4: Strict Mode Settings
 		add_submenu_page(
 			$this->base_slug,
-			__( 'Header/Footer Scripts', 'agewallet-oidc-client' ),
-			__( 'Scripts', 'agewallet-oidc-client' ),
+			__( 'Strict Mode Settings', 'agewallet-oidc-client' ),
+			__( 'Strict Mode', 'agewallet-oidc-client' ),
 			$cap,
 			'agewallet-scripts',
 			array( $this, 'render_scripts_page' )
@@ -208,7 +208,6 @@ class AgeWallet_Admin {
 		add_settings_field( 'agewallet_radius_btn', __( 'Button border radius (px)', 'agewallet-oidc-client' ), array( $this, 'render_number_input' ), 'agewallet-appearance', 'aw_sec_colors', array( 'label_for' => 'agewallet_radius_btn', 'class' => 'small-text', 'min' => 0, 'max' => 32, 'step' => 1 ) );
 
 		// --- Group 4: Strict-mode analytics ---
-		// Structured tracking IDs replace the previous free-text Header/Footer Scripts fields.
 		register_setting( $this->group_scripts, 'agewallet_ga4_id', array( 'sanitize_callback' => array( $this, 'sanitize_ga4_id' ), 'default' => '' ) );
 		register_setting( $this->group_scripts, 'agewallet_gtm_id', array( 'sanitize_callback' => array( $this, 'sanitize_gtm_id' ), 'default' => '' ) );
 		register_setting( $this->group_scripts, 'agewallet_fb_pixel_id', array( 'sanitize_callback' => array( $this, 'sanitize_fb_pixel_id' ), 'default' => '' ) );
@@ -325,7 +324,7 @@ class AgeWallet_Admin {
 					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-credentials' ) ); ?>"><strong><?php esc_html_e( 'Step 1: Set up your API Credentials', 'agewallet-oidc-client' ); ?></strong></a></li>
 					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-guarding' ) ); ?>"><strong><?php esc_html_e( 'Step 2: Set up Content Guarding Rules', 'agewallet-oidc-client' ); ?></strong></a></li>
 					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-appearance' ) ); ?>"><?php esc_html_e( 'Step 3: Customize Gate Appearance', 'agewallet-oidc-client' ); ?></a> <span class="description">(<?php esc_html_e( 'Optional', 'agewallet-oidc-client' ); ?>)</span></li>
-					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-scripts' ) ); ?>"><?php esc_html_e( 'Step 4: Add Header/Footer Scripts', 'agewallet-oidc-client' ); ?></a> <span class="description">(<?php esc_html_e( 'Strict Mode Only', 'agewallet-oidc-client' ); ?>)</span></li>
+					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-scripts' ) ); ?>"><?php esc_html_e( 'Step 4: Strict Mode Settings', 'agewallet-oidc-client' ); ?></a> <span class="description">(<?php esc_html_e( 'Strict Mode Only', 'agewallet-oidc-client' ); ?>)</span></li>
 				</ol>
 			</div>
 			<?php
@@ -351,7 +350,7 @@ class AgeWallet_Admin {
 	public function render_appearance_page() {
 		$next = array(
 			'slug'  => 'agewallet-scripts',
-			'label' => __( 'Next: Scripts', 'agewallet-oidc-client' ),
+			'label' => __( 'Next: Strict Mode Settings', 'agewallet-oidc-client' ),
 		);
 		$this->render_page_wrapper( __( 'Step 3: Gate Appearance', 'agewallet-oidc-client' ), null, $this->group_appearance, $next );
 	}
@@ -361,7 +360,7 @@ class AgeWallet_Admin {
 			'slug'  => 'agewallet-welcome',
 			'label' => __( 'Go to Dashboard', 'agewallet-oidc-client' ),
 		);
-		$this->render_page_wrapper( __( 'Step 4: Scripts', 'agewallet-oidc-client' ), null, $this->group_scripts, $next );
+		$this->render_page_wrapper( __( 'Step 4: Strict Mode Settings', 'agewallet-oidc-client' ), null, $this->group_scripts, $next );
 	}
 
 	public function render_debug_page() {
