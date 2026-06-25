@@ -25,7 +25,7 @@ Protection rules cover the whole site, individual URL paths, taxonomies (categor
 
 Every verification can carry an opaque metadata payload (≤4KB) that round-trips through the OIDC flow and surfaces on the `/userinfo` response, letting integrators correlate verifications with their own backend records.
 
-For the full feature enumeration, integration steps, developer hook list, and CSS class reference, see the Other Notes section below.
+For the full feature enumeration see Other Notes; for setup walkthroughs, the available CSS hooks, and the developer-hook list, see the Usage Guide, CSS Customization Guide, and Developer Hooks sections below.
 
 == Installation ==
 
@@ -88,7 +88,7 @@ Deleting the plugin from the Plugins screen runs `uninstall.php`, which removes 
     * Cart-context metadata (cart hash, total, currency, line-item count, billing country) automatically attached to verifications. In Conditional-on-Cart mode, a cart_triggers audit trail captures which products / categories / tags fired the gate.
 * Metadata pass-through: attach an opaque per-verification string (up to 4 KB) — static text or auto-composed JSON of selected request-context fields — that round-trips through the OIDC flow and surfaces on the `/userinfo` response.
 
-= Usage Guide =
+== Usage Guide ==
 
 This guide explains how to configure and use the plugin using the new setup wizard.
 
@@ -183,7 +183,7 @@ If you use High Security Mode, the plugin generates static HTML caches of your p
 * Scheduled Cleanup: You can configure an automatic cache purge schedule (default: every 4 hours) in the "Cache Control" settings tab.
 * Manual Purge: If you change settings and don't see them update immediately, click the "Purge Cache" button available in the sidebar of any AgeWallet settings page (or under Cache Control).
 
-= CSS Customization Guide =
+== CSS Customization Guide ==
 
 Use this guide to customize the appearance of the AgeWallet™ age gate and the Strict Mode loading screen.
 
@@ -284,7 +284,7 @@ Customizer CSS targets the gate's `.aw-gate__*` and `.agewallet-*` classes in bo
 
 Use your browser's developer tools (Inspect Element) to preview your changes live.
 
-= Developer Hooks =
+== Developer Hooks ==
 
 This plugin includes a number of action and filter hooks to allow for advanced customization and integration.
 
