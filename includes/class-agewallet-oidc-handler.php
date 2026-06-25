@@ -263,8 +263,8 @@
          if ( empty($client_id) ) {
              $this->log_debug('[OIDC Handler] Launch aborted: Client ID not configured.');
              wp_die(
-                 esc_html__('AgeWallet OIDC Client ID is not configured. Please contact the site administrator.', 'agewallet'),
-                 esc_html__('Configuration Error', 'agewallet'),
+                 esc_html__('AgeWallet OIDC Client ID is not configured. Please contact the site administrator.', 'agewallet-oidc-client'),
+                 esc_html__('Configuration Error', 'agewallet-oidc-client'),
                  array('response' => 400) // Bad Request
              );
          }
@@ -321,8 +321,8 @@
          if ( ! $set_transient_success ) {
              // Handle failure to save transient (database issue?)
              wp_die(
-                 esc_html__('Could not save verification session state. Please try again.', 'agewallet'),
-                 esc_html__('Session Error', 'agewallet'),
+                 esc_html__('Could not save verification session state. Please try again.', 'agewallet-oidc-client'),
+                 esc_html__('Session Error', 'agewallet-oidc-client'),
                  array('response' => 500) // Internal Server Error
              );
          }
@@ -425,7 +425,10 @@
              parse_str( $query_string, $query_params );
          }
 
-         $this->log_debug( '[OIDC Handler] Inside handle_callback.', array( 'manual_query_params' => $query_params, 'original_get' => $_GET ) );
+         $this->log_debug( '[OIDC Handler] Inside handle_callback.', array(
+             'manual_query_params' => $query_params,
+             'original_get'        => array_map( 'sanitize_text_field', wp_unslash( $_GET ) ),
+         ) );
          nocache_headers(); // Prevent caching of this sensitive endpoint
 
          // --- 1. Basic Security Checks & Parameter Retrieval ---
@@ -439,8 +442,8 @@
          if ( ! $state ) {
              $this->log_debug('[OIDC Handler] Callback missing state parameter.');
              wp_die(
-                 esc_html__('Invalid callback request received (missing state parameter).', 'agewallet'),
-                 esc_html__('Verification Error', 'agewallet'),
+                 esc_html__('Invalid callback request received (missing state parameter).', 'agewallet-oidc-client'),
+                 esc_html__('Verification Error', 'agewallet-oidc-client'),
                  array('response' => 400) // Bad Request
              );
          }
@@ -452,9 +455,9 @@
          if ( false === $transient_json ) {
              $this->log_debug('[OIDC Handler] Invalid or expired state transient.', ['state' => $state]);
              wp_die(
-                 esc_html__('Your verification session has expired or is invalid (state mismatch). Please try initiating the verification again.', 'agewallet'),
-                 esc_html__('Verification Error', 'agewallet'),
-                 array('response' => 400, 'link_text' => esc_html__( 'Return to site', 'agewallet' ), 'link_url' => esc_url( home_url( '/' ) )) // Bad Request
+                 esc_html__('Your verification session has expired or is invalid (state mismatch). Please try initiating the verification again.', 'agewallet-oidc-client'),
+                 esc_html__('Verification Error', 'agewallet-oidc-client'),
+                 array('response' => 400, 'link_text' => esc_html__( 'Return to site', 'agewallet-oidc-client' ), 'link_url' => esc_url( home_url( '/' ) )) // Bad Request
              );
          }
 
@@ -466,8 +469,8 @@
          if ( ! is_array($transient_data) || empty($transient_data['pkce_verifier']) || empty($transient_data['nonce']) ) {
               $this->log_debug('[OIDC Handler] Invalid transient data structure retrieved.', ['state' => $state]);
               wp_die(
-                  esc_html__('Could not retrieve necessary verification data (invalid session state). Please try again.', 'agewallet'),
-                  esc_html__('Verification Error', 'agewallet'),
+                  esc_html__('Could not retrieve necessary verification data (invalid session state). Please try again.', 'agewallet-oidc-client'),
+                  esc_html__('Verification Error', 'agewallet-oidc-client'),
                   array('response' => 500) // Internal Server Error - transient structure was wrong
               );
          }
@@ -504,20 +507,20 @@
                   }
                   // User clicked "Deny" on consent screen
                   wp_die(
-                     esc_html__('Age verification was cancelled or denied by the user.', 'agewallet'),
-                     esc_html__('Verification Cancelled', 'agewallet'),
-                     array('response' => 403, 'link_text' => esc_html__('Return to previous page', 'agewallet'), 'back_link' => true)
+                     esc_html__('Age verification was cancelled or denied by the user.', 'agewallet-oidc-client'),
+                     esc_html__('Verification Cancelled', 'agewallet-oidc-client'),
+                     array('response' => 403, 'link_text' => esc_html__('Return to previous page', 'agewallet-oidc-client'), 'back_link' => true)
                   );
              } else {
                   // Other OIDC errors (invalid_request, server_error etc.).
                   wp_die(
                      sprintf(
                         /* translators: 1: Human-readable error description from the identity provider. 2: Machine-readable error code. */
-                        esc_html__( 'Age verification failed: %1$s [%2$s]', 'agewallet' ),
+                        esc_html__( 'Age verification failed: %1$s [%2$s]', 'agewallet-oidc-client' ),
                         esc_html( $error_description ?: 'Unknown error' ),
                         esc_html( $error )
                      ),
-                     esc_html__( 'Verification Error', 'agewallet' ),
+                     esc_html__( 'Verification Error', 'agewallet-oidc-client' ),
                      array( 'response' => 400 )
                   );
              }
@@ -527,8 +530,8 @@
          if ( ! $code ) {
              $this->log_debug('[OIDC Handler] Callback missing code parameter (and no error parameter).');
              wp_die(
-                 esc_html__('Invalid callback request received (missing code).', 'agewallet'),
-                 esc_html__('Verification Error', 'agewallet'),
+                 esc_html__('Invalid callback request received (missing code).', 'agewallet-oidc-client'),
+                 esc_html__('Verification Error', 'agewallet-oidc-client'),
                  array('response' => 400)
              );
          }
@@ -540,8 +543,8 @@
          if ( empty($client_id) || empty($client_secret) ) {
              $this->log_debug('[OIDC Handler] Missing Client ID or Secret during token exchange attempt.');
              wp_die(
-                 esc_html__('Plugin configuration error: Client credentials are not set.', 'agewallet'),
-                 esc_html__('Configuration Error', 'agewallet'),
+                 esc_html__('Plugin configuration error: Client credentials are not set.', 'agewallet-oidc-client'),
+                 esc_html__('Configuration Error', 'agewallet-oidc-client'),
                  array('response' => 500)
              );
          }
@@ -583,10 +586,10 @@
              wp_die(
                  sprintf(
                      /* translators: %s: WP_Error code from the failed token-endpoint request. */
-                     esc_html__( 'Could not communicate with the verification server (%s).', 'agewallet' ),
+                     esc_html__( 'Could not communicate with the verification server (%s).', 'agewallet-oidc-client' ),
                      esc_html( $response->get_error_code() )
                  ),
-                 esc_html__( 'Verification Error', 'agewallet' ),
+                 esc_html__( 'Verification Error', 'agewallet-oidc-client' ),
                  array( 'response' => 502 )
              );
          }
@@ -606,10 +609,10 @@
              wp_die(
                  sprintf(
                      /* translators: %s: Human-readable error description returned by the token endpoint. */
-                     esc_html__( 'Verification failed: %s', 'agewallet' ),
+                     esc_html__( 'Verification failed: %s', 'agewallet-oidc-client' ),
                      esc_html( $error_details )
                  ),
-                 esc_html__( 'Verification Error', 'agewallet' ),
+                 esc_html__( 'Verification Error', 'agewallet-oidc-client' ),
                  array( 'response' => $response_code >= 500 ? 502 : 400 )
              );
          }
@@ -638,10 +641,10 @@
               wp_die(
                   sprintf(
                       /* translators: %s: WP_Error code from the failed userinfo-endpoint request. */
-                      esc_html__( 'Could not confirm verification details (%s).', 'agewallet' ),
+                      esc_html__( 'Could not confirm verification details (%s).', 'agewallet-oidc-client' ),
                       esc_html( $userinfo_response->get_error_code() )
                   ),
-                  esc_html__( 'Verification Error', 'agewallet' ),
+                  esc_html__( 'Verification Error', 'agewallet-oidc-client' ),
                   array( 'response' => 502 )
               );
          }
@@ -657,14 +660,14 @@
               $this->log_debug('[OIDC Handler] Userinfo check failed.', ['age_verified_claim_value' => $age_verified_claim]);
               if ($age_verified_claim === false) {
                    wp_die(
-                         esc_html__('Age verification completed, but the minimum age requirement was not met.', 'agewallet'),
-                         esc_html__('Verification Failed', 'agewallet'),
-                         array('response' => 403, 'link_text' => esc_html__( 'Return to site', 'agewallet' ), 'link_url' => esc_url( home_url( '/' ) ))
+                         esc_html__('Age verification completed, but the minimum age requirement was not met.', 'agewallet-oidc-client'),
+                         esc_html__('Verification Failed', 'agewallet-oidc-client'),
+                         array('response' => 403, 'link_text' => esc_html__( 'Return to site', 'agewallet-oidc-client' ), 'link_url' => esc_url( home_url( '/' ) ))
                    );
               } else {
                    wp_die(
-                         esc_html__('Could not confirm verification details (Invalid userinfo response).', 'agewallet'),
-                         esc_html__('Verification Error', 'agewallet'),
+                         esc_html__('Could not confirm verification details (Invalid userinfo response).', 'agewallet-oidc-client'),
+                         esc_html__('Verification Error', 'agewallet-oidc-client'),
                          array('response' => 500)
                    );
               }
@@ -695,7 +698,9 @@
          // `awt` query param is a one-time transient lookup key, validated by
          // get_transient() below — not form data, no nonce applies.
          // phpcs:disable WordPress.Security.NonceVerification.Recommended
-         $this->log_debug( '[OIDC Handler] Inside handle_success.', array( 'query_params' => $_GET ) );
+         $this->log_debug( '[OIDC Handler] Inside handle_success.', array(
+             'query_params' => array_map( 'sanitize_text_field', wp_unslash( $_GET ) ),
+         ) );
          nocache_headers();
 
          $success_token = isset( $_GET['awt'] ) ? preg_replace( '/[^a-f0-9]/i', '', sanitize_text_field( wp_unslash( $_GET['awt'] ) ) ) : null;
@@ -795,7 +800,7 @@
          <html <?php language_attributes(); ?>>
          <head>
              <meta charset="<?php bloginfo( 'charset' ); ?>">
-             <title><?php esc_html_e('Verification Successful - Redirecting...', 'agewallet'); ?></title>
+             <title><?php esc_html_e('Verification Successful - Redirecting...', 'agewallet-oidc-client'); ?></title>
              <meta name="viewport" content="width=device-width, initial-scale=1">
              <meta name="robots" content="noindex, nofollow">
              <meta http-equiv="refresh" content="2;url=<?php echo esc_url($redirect_to); ?>">
@@ -811,9 +816,9 @@
          </head>
          <body>
              <div class="container">
-                 <p><?php esc_html_e('Age verification successful. Redirecting you back...', 'agewallet'); ?><span class="spinner"></span></p>
-                 <p><a href="<?php echo esc_url($redirect_to); ?>"><?php esc_html_e('Click here if you are not redirected automatically.', 'agewallet'); ?></a></p>
-                 <noscript><p><strong><?php esc_html_e('JavaScript is required for the final redirection step.', 'agewallet'); ?></strong></p></noscript>
+                 <p><?php esc_html_e('Age verification successful. Redirecting you back...', 'agewallet-oidc-client'); ?><span class="spinner"></span></p>
+                 <p><a href="<?php echo esc_url($redirect_to); ?>"><?php esc_html_e('Click here if you are not redirected automatically.', 'agewallet-oidc-client'); ?></a></p>
+                 <noscript><p><strong><?php esc_html_e('JavaScript is required for the final redirection step.', 'agewallet-oidc-client'); ?></strong></p></noscript>
              </div>
 
              <script type="text/javascript">
@@ -868,8 +873,8 @@
          $this->log_debug('[OIDC Handler] Success transient set (for success/exemption).', ['key' => $success_transient_key, 'success' => $set_success_transient ? 'Yes' : 'No']);
          if ( ! $set_success_transient ) {
              wp_die(
-                 esc_html__('Could not save final redirect state.', 'agewallet'),
-                 esc_html__('Session Error', 'agewallet'),
+                 esc_html__('Could not save final redirect state.', 'agewallet-oidc-client'),
+                 esc_html__('Session Error', 'agewallet-oidc-client'),
                  array('response' => 500)
              );
          }
@@ -920,8 +925,8 @@
 
      // --- Singleton Pattern Boilerplate ---
      /** Cloning forbidden. @since 0.1.0 */
-     public function __clone() { _doing_it_wrong(__FUNCTION__, esc_html__('Cloning forbidden.', 'agewallet'), '0.1.0'); }
+     public function __clone() { _doing_it_wrong(__FUNCTION__, esc_html__('Cloning forbidden.', 'agewallet-oidc-client'), '0.1.0'); }
      /** Unserializing forbidden. @since 0.1.0 */
-     public function __wakeup() { _doing_it_wrong(__FUNCTION__, esc_html__('Unserializing forbidden.', 'agewallet'), '0.1.0'); }
+     public function __wakeup() { _doing_it_wrong(__FUNCTION__, esc_html__('Unserializing forbidden.', 'agewallet-oidc-client'), '0.1.0'); }
 
  } // End class AgeWallet_OIDC_Handler

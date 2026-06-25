@@ -4,7 +4,7 @@ Tags: age verification, age gate, agewallet, content restriction, oidc
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.3
+Stable tag: 1.5.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,33 +13,19 @@ Cache-compatible and designed for legal compliance.
 
 == Description ==
 
-The AgeWallet OIDC Client plugin provides a robust and secure method for adding age verification and content gating to your WordPress website.
+The AgeWallet OIDC Client plugin adds age verification and content gating to your WordPress website, backed by the AgeWallet™ verification service over OpenID Connect (OIDC).
 
-It leverages the modern OpenID Connect (OIDC) standard and is built to be both highly flexible and compatible with all types of hosting environments, especially those with aggressive caching.
+It is designed to be straightforward to set up, fully customizable, and compatible with all WordPress hosting environments — including sites behind aggressive page caches (Cloudflare, Varnish, WP Rocket, LiteSpeed, etc.).
 
-Key Features:
+Two protection modes are available. **Standard (Overlay)** mode hides gated content via a client-side overlay; it is SEO-friendly and works on any cached page. **High Security (Strict)** mode short-circuits the page entirely until the visitor verifies, using a cookieless "skeleton" template that pairs with "Cache Everything" CDN rules.
 
-* Legal Compliance: Leverages the AgeWallet™ service, which is designed to comply with modern age verification laws and regulations in most major countries, helping you meet your legal obligations.
-* Secure Verification Flow: Implements the recommended OIDC Authorization Code Flow with PKCE for maximum security, ensuring that user data is handled safely.
-* Enhanced Cookie Security: Uses HMAC cryptographic signing to prevent cookie forgery. Verification cookies are strictly tied to the user session and mathematically verified by the server.
-* Two Security Modes:
-    * Standard (Overlay): A lightweight, SEO-friendly overlay that hides content via CSS and JavaScript.
-    * High Security (Strict): Prevents protected content from loading entirely until verification is complete. Uses a secure "Skeleton" loading state and is compatible with "Cache Everything" page rules (Cloudflare/Varnish). However this mode will also prevent SEO crawling of protected content.
-* Smart Caching Architecture: Strict mode utilizes a split-cache system (Singular vs. Archives) to ensure fast performance while allowing for immediate invalidation when content changes.
-* Automated Cache Management: Includes a configurable garbage collection schedule to keep your storage footprint low, plus extended invalidation triggers for global site changes.
-* Fully Customizable Gate: Match the age gate to your brand. Upload your logo, use a WYSIWYG editor for messaging, and override styles with Custom CSS.
-* Flexible Content Protection Rules:
-    * Full Site Protection: Protect your entire site, including or excluding the homepage.
-    * Granular Taxonomy Control: Gate or exclude content based on specific Categories, Tags, or Custom Taxonomies (e.g., WooCommerce Product Categories).
-    * Path-Based Protection: Automatically protect specific URL paths (e.g., `/shop/`, `/videos/premium/`).
-    * Per-Post Control: Force or exclude verification on individual posts via the editor sidebar.
-    * Shortcode Protection: Protect specific page elements using `[agewallet_protected]`.
-* WooCommerce Integration:
-    * Checkout Gating Modes: Off (no checkout-specific rule), Force Always (every checkout gates), or Conditional on Cart (gate fires only when the cart contains items flagged as regulated).
-    * Regulated Product Controls: Flag individual products as Not Regulated, Regulated, or Override (force unregulated even when the product's category or tag is flagged) via a new "AgeWallet" tab in the product data metabox.
-    * Regulated Categories and Tags: Flag entire product categories or tags as regulated via a checkbox on the term edit screens. Products inherit the regulated flag from any of their categories or tags.
-    * Cart Context Metadata: Per-checkout cart context (cart hash, total, currency, line item count, billing country) is automatically attached to the verification, with a cart_triggers audit trail capturing which products, categories, and tags triggered the gate in Conditional on Cart mode.
-* Metadata Pass-Through: Attach an opaque per-verification string (up to 4KB) — static text or an auto-composed JSON of selected request-context fields — to every AgeWallet verification. The metadata round-trips through the OIDC flow and surfaces on the userinfo response, letting integrators tie verifications back to their own session, order, or customer records.
+Customize the gate's appearance from the Gate Appearance tab (logo, copy, colours, button radii) and override anything else from Appearance → Customize → Additional CSS. Strict-mode analytics — Google Analytics 4, Google Tag Manager, and Facebook Pixel — are configurable from the Strict Mode Analytics tab.
+
+Protection rules cover the whole site, individual URL paths, taxonomies (categories, tags, custom taxonomies), per-post overrides via the editor sidebar, and the `[agewallet_protected]` shortcode for inline content. WooCommerce is supported out of the box with three checkout-gate modes and per-product / per-category regulated flagging.
+
+Every verification can carry an opaque metadata payload (≤4KB) that round-trips through the OIDC flow and surfaces on the `/userinfo` response, letting integrators correlate verifications with their own backend records.
+
+For the full feature enumeration, integration steps, developer hook list, and CSS class reference, see the Other Notes section below.
 
 == Installation ==
 
@@ -76,6 +62,31 @@ The plugin stores a signed HMAC verification cookie on the visitor's browser ind
 Deleting the plugin from the Plugins screen runs `uninstall.php`, which removes all `agewallet_*` options, transients, scheduled cron events, and the strict-mode HTML cache directory. Verification cookies on visitor browsers expire on their own.
 
 == Other Notes ==
+
+= Features =
+
+* Legal compliance: leverages the AgeWallet™ service, designed to comply with modern age-verification laws in major jurisdictions.
+* Secure verification flow: OIDC Authorization Code Flow with PKCE.
+* Cryptographic cookie integrity: HMAC-signed verification cookies, mathematically verified server-side.
+* Two protection modes:
+    * Standard (Overlay): a lightweight, SEO-friendly overlay that hides content via CSS and JavaScript.
+    * High Security (Strict): prevents protected content from loading until verification is complete. Uses a cookieless skeleton page compatible with "Cache Everything" CDN rules.
+* Smart caching architecture: Strict mode uses a split-cache system (singular vs. archives) for fast performance with immediate invalidation when content changes.
+* Automated cache management: configurable garbage-collection schedule plus invalidation triggers for menu / theme / taxonomy changes.
+* Fully customizable gate appearance: dedicated logo, WYSIWYG copy editor, colour pickers (overlay / card / text / buttons), card and button border-radius, plus Customizer Additional CSS for advanced overrides.
+* Strict-mode analytics: structured Google Analytics 4, Google Tag Manager, and Facebook Pixel ID fields render the official snippets directly into the skeleton page (where the theme's own analytics tags can't fire).
+* Flexible content protection rules:
+    * Full-site protection (with or without the homepage).
+    * Granular taxonomy control across Categories, Tags, and Custom Taxonomies (e.g. WooCommerce Product Categories).
+    * Path-based protection on specific URL paths (e.g. `/shop/`, `/videos/premium/`).
+    * Per-post overrides via the editor sidebar.
+    * Inline `[agewallet_protected]` shortcode for specific page elements.
+* WooCommerce integration:
+    * Three checkout-gate modes: Off, Force Always, Conditional on Cart.
+    * Per-product regulated controls: Not Regulated / Regulated / Override.
+    * Per-category and per-tag regulated flagging on the term-edit screens (products inherit from any of their categories or tags).
+    * Cart-context metadata (cart hash, total, currency, line-item count, billing country) automatically attached to verifications. In Conditional-on-Cart mode, a cart_triggers audit trail captures which products / categories / tags fired the gate.
+* Metadata pass-through: attach an opaque per-verification string (up to 4 KB) — static text or auto-composed JSON of selected request-context fields — that round-trips through the OIDC flow and surfaces on the `/userinfo` response.
 
 = Usage Guide =
 
@@ -131,17 +142,21 @@ You can customize the age gate to match your brand on the Step 3: Gate Appearanc
 * Logo Width (px): Set a specific width for your logo, or leave at 0 for natural size.
 * Gate Copy: Use the text editor to change the main message your users see.
 * Hide Default Heading: Check this box to remove the "You Must Verify Your Age" title (e.g., if your custom copy already includes a title).
-* Custom CSS: Enter custom CSS here to override styles for the Gate or the Strict Mode Skeleton screen (e.g., `.aw-gate__btn--yes { background: red; }`).
+* Colours: Pick the overlay backdrop, card background and border, body and disclaimer text colours, and the Agree / Disagree button colours from the dedicated colour pickers.
+* Card / button border radius: Set how rounded the card and buttons appear.
+* For anything beyond these structured controls (custom fonts, site-wide rules, advanced selectors, hover variants not in the form), use **Appearance → Customize → Additional CSS**. AgeWallet applies that CSS to the gate on both Standard and Strict modes — see the CSS Customization Guide below for the available class names.
 
-= 4. Advanced Scripts (Step 4) =
+= 4. Strict Mode Analytics (Step 4) =
 
 Note: These settings only apply if you are using High Security (Strict) Mode.
 
-Because Strict Mode prevents your theme from loading during the verification check, your theme's header/footer scripts (like Analytics) won't run on the "Verifying..." screen.
-Use these fields to add essential scripts back in:
+Because Strict Mode short-circuits the theme during verification, the analytics tags your theme normally renders do NOT fire on the "Verifying..." loading screen. Enter the IDs of the services you use and AgeWallet renders their official snippets directly. Leave any field blank to skip it.
 
-* Header Scripts: Output in the &lt;head&gt; section (e.g., Google Analytics tag).
-* Footer Scripts: Output before the closing &lt;/body&gt; tag.
+* Google Analytics 4 — Measurement ID (`G-XXXXXXXXXX`)
+* Google Tag Manager — Container ID (`GTM-XXXXXXX`)
+* Facebook Pixel — numeric Pixel ID
+
+For analytics providers we don't ship a field for (Plausible, Fathom, Microsoft Clarity, Hotjar, etc.), add them via the `agewallet_skeleton_head` / `agewallet_skeleton_footer` action hooks in a small mu-plugin or your theme's `functions.php` — see the Developer Hooks section.
 
 = 5. Per-Post / Per-Page Control =
 
@@ -171,8 +186,26 @@ If you use High Security Mode, the plugin generates static HTML caches of your p
 = CSS Customization Guide =
 
 Use this guide to customize the appearance of the AgeWallet™ age gate and the Strict Mode loading screen.
-You can enter these overrides in Step 3: Gate Appearance > Custom CSS or add them to your theme's stylesheet.
-All classes are prefixed with `.aw-gate__` for easy targeting.
+
+For most customizations, the colour and radius controls in Step 3: Gate Appearance are sufficient — they map directly to the CSS custom properties listed in the next subsection.
+
+For anything beyond that (custom fonts, site-wide rules, advanced selectors, hover states not exposed in the form), add your rules in **Appearance → Customize → Additional CSS**. AgeWallet applies that CSS to the gate on both Standard and Strict modes. The gate exposes a stable DOM with the `.aw-gate__*` and `.agewallet-*` class names below — write rules against them as you would for any theme component.
+
+= CSS custom properties (set by the Gate Appearance form) =
+
+The plugin's gate stylesheet uses these CSS variables; the Gate Appearance pickers write to them. You can also override them yourself in Customizer Additional CSS:
+
+* `--aw-bg` — Overlay backdrop (Standard mode) and skeleton background (Strict mode).
+* `--aw-card` — Card background.
+* `--aw-card-border` — Card border colour.
+* `--aw-text` — Card body text colour.
+* `--aw-muted` — Disclaimer text colour.
+* `--aw-purple` — "I Agree" button background.
+* `--aw-purple-700` — "I Agree" hover state.
+* `--aw-no-btn-dark-bg` — "I Disagree" button background.
+* `--aw-no-btn-dark-text` — "I Disagree" button text.
+* `--aw-radius` — Card border radius (px).
+* `--aw-btn-radius` — Button border radius (px).
 
 = 1. Overlay & Layout =
 
@@ -238,19 +271,16 @@ Controls borders, background, and padding.
 
 = Customization Tips =
 
-To override styles safely, add your CSS in the plugin settings ("Gate Appearance" tab).
-For example:
+For colour and radius tweaks, the Gate Appearance form is the easiest path. For anything else, paste your CSS into **Appearance → Customize → Additional CSS**:
 
 `
 .aw-gate__btn--yes {
-    background-color: #28a745;
-    color: #fff;
+    background-color: #28a745 !important;
+    color: #fff !important;
 }
 `
 
-You can also enqueue a custom CSS file using:
-
-`wp_enqueue_style('agewallet-custom', get_stylesheet_directory_uri() . '/agewallet-custom.css');`
+Customizer CSS targets the gate's `.aw-gate__*` and `.agewallet-*` classes in both Standard and Strict modes — no plugin setting required.
 
 Use your browser's developer tools (Inspect Element) to preview your changes live.
 
@@ -355,6 +385,14 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 This plugin is licensed under the GNU General Public License v2.0 or later. A copy of the license is included in `LICENSE.txt` and is available at https://www.gnu.org/licenses/gpl-2.0.html.
 
 == Changelog ==
+
+= 1.5.4 =
+* Structured Gate Appearance form: dedicated colour pickers (overlay backdrop, card background and border, body and disclaimer text, Agree / Disagree buttons) and card / button border-radius inputs replace the previous free-text "Custom CSS" field. Defaults match the previous look; saving without changes produces no visual diff.
+* Strict Mode Analytics: dedicated Google Analytics 4 Measurement ID, Google Tag Manager Container ID, and Facebook Pixel ID fields replace the previous free-text Header / Footer Scripts inputs. AgeWallet now renders the canonical official snippets for each provider when the corresponding ID is set.
+* Customizer-driven custom CSS: arbitrary CSS overrides should now live in **Appearance → Customize → Additional CSS**. AgeWallet automatically renders the Customizer's saved CSS into the Strict-mode skeleton (it already applies on Standard mode via the normal WordPress lifecycle). For exotic per-site needs (custom fonts, non-standard analytics providers), use the `agewallet_skeleton_head` / `agewallet_skeleton_footer` action hooks listed in the Developer Hooks guide.
+* Text domain renamed from `agewallet` to `agewallet-oidc-client` to match the WordPress.org-assigned plugin slug. Plugin folder, main file, and Text Domain header all aligned.
+* Quality: admin-page styles moved into a dedicated stylesheet enqueued via `admin_enqueue_scripts` (no more inline `<style>` blocks); raw `$_GET` no longer logged from the OIDC handler's debug paths; shortcode return annotated for the static-analyzer escape check.
+* No external installs existed before this version, so the previous `agewallet_custom_css` / `agewallet_head_scripts` / `agewallet_footer_scripts` options are removed outright; their stored values (if any) are cleared by `uninstall.php` on plugin deletion.
 
 = 1.5.3 =
 * Security & Quality: Comprehensive cleanup pass driven by the WordPress.org Plugin Check tool. All `$_GET`, `$_SERVER`, and `$_COOKIE` reads now go through `wp_unslash()` + appropriate `sanitize_*()` wrappers. All translated output is escaped (`esc_html__()` / `esc_url()` / etc.). Translator comments added to every `__()`/`esc_html__()` call that uses placeholders, and ordered-placeholder syntax adopted where multiple placeholders appear. Direct `unlink()` calls replaced with `wp_delete_file()`; `strip_tags()` replaced with `wp_strip_all_tags()`. Template variables prefixed (`$aw_*`). Plugin's own debug logging routed through a centralised helper that respects `OPT_DEBUG_MODE`, replacing scattered `error_log()` calls. Removed manual `load_plugin_textdomain()` call (no longer needed under WP 4.6+).

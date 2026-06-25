@@ -674,7 +674,8 @@ class AgeWallet_Gating_Manager {
 		$output .= '</div>';
 		$output .= '</div>';
 
-		return $output;
+		// Internally-escaped: $placeholder_html via get_gate_html(), $processed_content via WP shortcode pipeline.
+		return $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Gate HTML internally escaped; $content goes through WP shortcode pipeline.
 	}
 
 	/**
@@ -694,7 +695,7 @@ class AgeWallet_Gating_Manager {
 		if ( ! empty( $copy_html ) ) {
 			$desc_html = wpautop( trim( $copy_html ) );
 		} else {
-			$default_copy = __( 'You must be 18+ to view this content (or meet the minimum age required by your local jurisdiction). By selecting “I Agree,” you confirm that you meet the minimum age requirement and consent to verification by our partner, AgeWallet™. If you do not meet the minimum age requirement or do not agree, please select “I Disagree.”', 'agewallet' );
+			$default_copy = __( 'You must be 18+ to view this content (or meet the minimum age required by your local jurisdiction). By selecting “I Agree,” you confirm that you meet the minimum age requirement and consent to verification by our partner, AgeWallet™. If you do not meet the minimum age requirement or do not agree, please select “I Disagree.”', 'agewallet-oidc-client' );
 			$desc_html    = '<p>' . esc_html( $default_copy ) . '</p>';
 		}
 
@@ -727,18 +728,18 @@ class AgeWallet_Gating_Manager {
 
 		$args = array(
 			'logo_src'         => $logo_src,
-			'logo_alt'         => __( 'Logo', 'agewallet' ),
+			'logo_alt'         => __( 'Logo', 'agewallet-oidc-client' ),
 			'logo_width'       => $logo_width,
 			'show_title'       => ! $hide_h1,
-			'title'            => __( 'You Must Verify Your Age', 'agewallet' ),
+			'title'            => __( 'You Must Verify Your Age', 'agewallet-oidc-client' ),
 			'description_html' => $desc_html,
 			'agree_url'        => $agree_href,
-			'agree_text'       => __( 'I Agree', 'agewallet' ),
-			'disagree_text'    => __( 'I Disagree', 'agewallet' ),
-			'error_text'       => __( 'Sorry, you do not meet the minimum requirements to view this content.', 'agewallet' ),
+			'agree_text'       => __( 'I Agree', 'agewallet-oidc-client' ),
+			'disagree_text'    => __( 'I Disagree', 'agewallet-oidc-client' ),
+			'error_text'       => __( 'Sorry, you do not meet the minimum requirements to view this content.', 'agewallet-oidc-client' ),
 			'disclaimer_html'  => sprintf(
 				/* translators: %s: URL to AgeWallet website */
-				__( 'By proceeding you agree to allow %s to verify your age.', 'agewallet' ),
+				__( 'By proceeding you agree to allow %s to verify your age.', 'agewallet-oidc-client' ),
 				'<a href="https://www.agewallet.com" target="_blank" rel="noopener noreferrer">AgeWallet™</a>'
 			),
 		);
@@ -825,7 +826,7 @@ class AgeWallet_Gating_Manager {
 		foreach ( $post_types as $post_type ) {
 			add_meta_box(
 				'agewallet_restriction_meta',
-				__( 'Age Restriction', 'agewallet' ),
+				__( 'Age Restriction', 'agewallet-oidc-client' ),
 				array( $this, 'render_restriction_meta_box' ),
 				$post_type,
 				'side',
@@ -849,20 +850,20 @@ class AgeWallet_Gating_Manager {
 				<input type="checkbox" id="agewallet_force_restrict" name="agewallet_force_restrict" value="1"
 					<?php checked( $force_restrict, '1' ); ?>
 					<?php echo ( '1' === $force_exclude ) ? 'disabled="disabled"' : ''; ?> />
-				<?php esc_html_e( 'Require age verification', 'agewallet' ); ?>
+				<?php esc_html_e( 'Require age verification', 'agewallet-oidc-client' ); ?>
 			</label><br>
-			<small><?php esc_html_e( "(Overrides Global 'None' setting)", 'agewallet' ); ?></small>
+			<small><?php esc_html_e( "(Overrides Global 'None' setting)", 'agewallet-oidc-client' ); ?></small>
 		</p>
 		<hr style="margin: 10px 0;">
 		<p>
 			<label for="agewallet_force_exclude">
 				<input type="checkbox" id="agewallet_force_exclude" name="agewallet_force_exclude" value="1"
 					<?php checked( $force_exclude, '1' ); ?> />
-				<?php esc_html_e( 'Exclude from age verification', 'agewallet' ); ?>
+				<?php esc_html_e( 'Exclude from age verification', 'agewallet-oidc-client' ); ?>
 			</label><br>
-			<small><?php esc_html_e( "(Overrides ALL Global settings)", 'agewallet' ); ?></small>
+			<small><?php esc_html_e( "(Overrides ALL Global settings)", 'agewallet-oidc-client' ); ?></small>
 		</p>
-		<p><small><?php esc_html_e( 'Note: If "Exclude" is checked, "Require" will be ignored.', 'agewallet' ); ?></small></p>
+		<p><small><?php esc_html_e( 'Note: If "Exclude" is checked, "Require" will be ignored.', 'agewallet-oidc-client' ); ?></small></p>
 		<script type="text/javascript">
 			document.addEventListener('DOMContentLoaded', function() {
 				var restrictCheckbox = document.getElementById('agewallet_force_restrict');
@@ -957,11 +958,11 @@ class AgeWallet_Gating_Manager {
 	// --- Singleton Pattern Boilerplate ---
 	/** Cloning forbidden. @since 0.1.0 */
 	public function __clone() {
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning is forbidden.', 'agewallet' ), '0.1.0' );
+		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning is forbidden.', 'agewallet-oidc-client' ), '0.1.0' );
 	}
 	/** Unserializing forbidden. @since 0.1.0 */
 	public function __wakeup() {
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Unserializing forbidden.', 'agewallet' ), '0.1.0' );
+		_doing_it_wrong( __FUNCTION__, esc_html__( 'Unserializing forbidden.', 'agewallet-oidc-client' ), '0.1.0' );
 	}
 
 } // End class AgeWallet_Gating_Manager

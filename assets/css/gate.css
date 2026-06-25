@@ -19,6 +19,7 @@
   --aw-purple-700: #5a1784;  /* hover/darker */
   --aw-shadow: 0 10px 30px rgba(0,0,0,.45);
   --aw-radius: 16px;
+  --aw-btn-radius: 12px;
   --aw-text-light-bg: #111; /* Text color for light backgrounds */
   --aw-muted-light-bg: #666; /* Muted text color for light backgrounds */
   --aw-no-btn-light-bg: #f5f5f5; /* Background for 'No' button on light BG */
@@ -264,7 +265,7 @@ body.aw-verify-body {
   min-height: 48px; /* Slightly taller */
   padding: 10px 24px; /* Adjust padding */
   border: 1px solid transparent; /* Base border */
-  border-radius: 12px !important; /* Unified radius */
+  border-radius: var(--aw-btn-radius, 12px) !important; /* Unified radius */
   font-size: 16px; /* Ensure readable font size */
   font-weight: 700;
   line-height: 1.5;

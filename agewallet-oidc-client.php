@@ -2,10 +2,10 @@
 /**
  * Plugin Name: AgeWallet OIDC Client
  * Description: Secure AgeWallet OIDC flow for WordPress using transients and client-side gating for cache compatibility.
- * Version:     1.5.3
+ * Version:     1.5.4
  * Author:      AgeWallet LLC
  * Author URI:  https://agewallet.com
- * Text Domain: agewallet
+ * Text Domain: agewallet-oidc-client
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * WC requires at least: 7.0
@@ -31,7 +31,7 @@ add_action( 'before_woocommerce_init', function () {
 } );
 
 // Define essential plugin constants.
-define( 'AGEWALLET_VERSION', '1.5.3' );
+define( 'AGEWALLET_VERSION', '1.5.4' );
 define( 'AGEWALLET_PLUGIN_FILE', __FILE__ );
 define( 'AGEWALLET_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGEWALLET_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -215,7 +215,7 @@ final class AgeWalletOIDCClientPro {
 							echo '<div class="notice notice-error"><p>';
 							printf(
 								/* translators: %s: Name of the missing file. */
-								esc_html__( 'AgeWallet Plugin Error: Required file "%s" is missing. Please reinstall the plugin.', 'agewallet' ),
+								esc_html__( 'AgeWallet Plugin Error: Required file "%s" is missing. Please reinstall the plugin.', 'agewallet-oidc-client' ),
 								esc_html( "includes/{$filename}" )
 							);
 							echo '</p></div>';
@@ -449,7 +449,7 @@ final class AgeWalletOIDCClientPro {
 						echo '<div class="notice notice-error is-dismissible"><p>';
 						printf(
 							/* translators: %s: Name of the missing class file (guessed). */
-							esc_html__( 'AgeWallet Plugin Error: A required file is missing or unloadable (%s). Please reinstall the plugin.', 'agewallet' ),
+							esc_html__( 'AgeWallet Plugin Error: A required file is missing or unloadable (%s). Please reinstall the plugin.', 'agewallet-oidc-client' ),
 							esc_html( str_replace( '_', '-', strtolower( $class_name ) ) . '.php' ) // Guess filename
 						);
 						echo '</p></div>';
@@ -467,7 +467,7 @@ final class AgeWalletOIDCClientPro {
 	 * @since 0.1.0
 	 */
 	public function __clone() {
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning is forbidden.', 'agewallet' ), '0.1.0' );
+		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning is forbidden.', 'agewallet-oidc-client' ), '0.1.0' );
 	}
 
 	/**
@@ -475,7 +475,7 @@ final class AgeWalletOIDCClientPro {
 	 * @since 0.1.0
 	 */
 	public function __wakeup() {
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Unserializing instances of this class is forbidden.', 'agewallet' ), '0.1.0' );
+		_doing_it_wrong( __FUNCTION__, esc_html__( 'Unserializing instances of this class is forbidden.', 'agewallet-oidc-client' ), '0.1.0' );
 	}
 
 } // End final class AgeWalletOIDCClientPro

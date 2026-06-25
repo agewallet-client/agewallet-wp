@@ -172,7 +172,7 @@ class AgeWallet_API {
 				array(
 					'success' => false,
 					'error'   => 'unverified',
-					'message' => __( 'Age verification required.', 'agewallet' ),
+					'message' => __( 'Age verification required.', 'agewallet-oidc-client' ),
 				),
 				403
 			);
@@ -403,7 +403,7 @@ class AgeWallet_API {
 		$schedules['agewallet_custom_interval'] = array(
 			'interval' => $interval,
 			/* translators: %d: Cron interval expressed in whole seconds (configured by the admin in the AgeWallet settings). */
-			'display'  => sprintf( __( 'Every %d Seconds', 'agewallet' ), (int) $interval ),
+			'display'  => sprintf( __( 'Every %d Seconds', 'agewallet-oidc-client' ), (int) $interval ),
 		);
 		return $schedules;
 	}
@@ -538,6 +538,6 @@ class AgeWallet_API {
 		return $count;
 	}
 
-	public function __clone() { _doing_it_wrong( __FUNCTION__, esc_html__( 'Forbidden', 'agewallet' ), '1.1.0' ); }
-	public function __wakeup() { _doing_it_wrong( __FUNCTION__, esc_html__( 'Forbidden', 'agewallet' ), '1.1.0' ); }
+	public function __clone() { _doing_it_wrong( __FUNCTION__, esc_html__( 'Forbidden', 'agewallet-oidc-client' ), '1.1.0' ); }
+	public function __wakeup() { _doing_it_wrong( __FUNCTION__, esc_html__( 'Forbidden', 'agewallet-oidc-client' ), '1.1.0' ); }
 }

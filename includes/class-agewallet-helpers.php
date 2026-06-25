@@ -447,11 +447,107 @@
         }
 
 
+        /**
+         * Render `<style id="agewallet-vars">:root{--aw-...}</style>` from the structured
+         * appearance options. Each value is plugin-controlled; admins only choose hex strings
+         * (validated by sanitize_hex_color) and integers (clamped 0-32), never raw CSS.
+         *
+         * @since 1.5.4
+         */
+        public function render_css_vars() {
+            if ( ! class_exists( 'AgeWallet_Admin' ) ) {
+                return;
+            }
+            $vars = array(
+                '--aw-bg'             => get_option( 'agewallet_color_overlay_bg',    '#000000' ),
+                '--aw-card'           => get_option( 'agewallet_color_card_bg',       '#0d0d10' ),
+                '--aw-card-border'    => get_option( 'agewallet_color_card_border',   '#1e1e24' ),
+                '--aw-text'           => get_option( 'agewallet_color_text',          '#f5f7fb' ),
+                '--aw-muted'          => get_option( 'agewallet_color_muted',         '#c8cbd4' ),
+                '--aw-purple'         => get_option( 'agewallet_color_btn_yes_bg',    '#6a1b9a' ),
+                '--aw-purple-700'     => get_option( 'agewallet_color_btn_yes_hover', '#5a1784' ),
+                '--aw-no-btn-dark-bg' => get_option( 'agewallet_color_btn_no_bg',     '#2a2a32' ),
+                '--aw-no-btn-dark-text' => get_option( 'agewallet_color_btn_no_text', '#cdd0d7' ),
+                '--aw-radius'         => ( (int) get_option( 'agewallet_radius_card', 16 ) ) . 'px',
+                '--aw-btn-radius'     => ( (int) get_option( 'agewallet_radius_btn',  12 ) ) . 'px',
+            );
+
+            $lines = array();
+            foreach ( $vars as $property => $value ) {
+                $value = trim( (string) $value );
+                if ( '' === $value ) {
+                    continue;
+                }
+                $lines[] = sprintf( '%s: %s;', $property, $value );
+            }
+            if ( empty( $lines ) ) {
+                return;
+            }
+            // Output: property names are hardcoded; values are sanitized hex / "Npx".
+            echo '<style id="agewallet-vars">:root{' . implode( '', array_map( 'esc_html', $lines ) ) . '}</style>';
+        }
+
+        /**
+         * Render the canonical GA4 / GTM / Facebook-Pixel snippets when their structured IDs
+         * are set. We never echo admin code — only the IDs are admin-supplied, and they're
+         * regex-validated at save time. The snippet bodies are plugin-controlled string
+         * templates.
+         *
+         * @param string $placement 'head' or 'body'.
+         * @since 1.5.4
+         */
+        public function render_analytics_snippets( $placement = 'head' ) {
+            $ga4   = (string) get_option( 'agewallet_ga4_id',      '' );
+            $gtm   = (string) get_option( 'agewallet_gtm_id',      '' );
+            $pixel = (string) get_option( 'agewallet_fb_pixel_id', '' );
+
+            if ( 'head' === $placement ) {
+                if ( '' !== $ga4 && preg_match( '/^G-[A-Z0-9]{4,}$/', $ga4 ) ) {
+                    $id = esc_js( $ga4 );
+                    printf(
+                        '<script async src="https://www.googletagmanager.com/gtag/js?id=%1$s"></script>'
+                        . '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","%1$s");</script>',
+                        $id // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above; surrounding template plugin-controlled.
+                    );
+                }
+                if ( '' !== $gtm && preg_match( '/^GTM-[A-Z0-9]{4,}$/', $gtm ) ) {
+                    $id = esc_js( $gtm );
+                    printf(
+                        '<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({"gtm.start":new Date().getTime(),event:"gtm.js"});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f);})(window,document,"script","dataLayer","%s");</script>',
+                        $id // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above.
+                    );
+                }
+                if ( '' !== $pixel && preg_match( '/^\d{6,}$/', $pixel ) ) {
+                    $id = esc_js( $pixel );
+                    printf(
+                        '<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");fbq("init","%1$s");fbq("track","PageView");</script>',
+                        $id // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above.
+                    );
+                }
+                return;
+            }
+
+            // Body placement: GTM <noscript> iframe + Pixel <noscript> tracking image.
+            if ( '' !== $gtm && preg_match( '/^GTM-[A-Z0-9]{4,}$/', $gtm ) ) {
+                printf(
+                    '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>',
+                    esc_attr( $gtm )
+                );
+            }
+            if ( '' !== $pixel && preg_match( '/^\d{6,}$/', $pixel ) ) {
+                printf(
+                    '<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=%s&ev=PageView&noscript=1" alt="" /></noscript>',
+                    esc_attr( $pixel )
+                );
+            }
+        }
+
+
         // --- Singleton Pattern Boilerplate ---
         /** Cloning forbidden. @since 0.1.0 */
-        public function __clone() { _doing_it_wrong(__FUNCTION__, esc_html__('Cloning forbidden.', 'agewallet'), '0.1.0'); }
+        public function __clone() { _doing_it_wrong(__FUNCTION__, esc_html__('Cloning forbidden.', 'agewallet-oidc-client'), '0.1.0'); }
         /** Unserializing forbidden. @since 0.1.0 */
-        public function __wakeup() { _doing_it_wrong(__FUNCTION__, esc_html__('Unserializing forbidden.', 'agewallet'), '0.1.0'); }
+        public function __wakeup() { _doing_it_wrong(__FUNCTION__, esc_html__('Unserializing forbidden.', 'agewallet-oidc-client'), '0.1.0'); }
 
     } // End class AgeWallet_Helpers
 

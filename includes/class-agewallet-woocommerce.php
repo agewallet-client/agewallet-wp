@@ -5,7 +5,7 @@
  * Adds an opt-in "always gate the checkout page" rule plus per-checkout
  * metadata that round-trips through the AgeWallet verification flow.
  *
- * Loaded only when WooCommerce is active (gated in agewallet.php bootstrap).
+ * Loaded only when WooCommerce is active (gated in agewallet-oidc-client.php bootstrap).
  *
  * @package AgeWalletOIDCClient
  * @since   1.4.0
