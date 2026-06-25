@@ -110,9 +110,9 @@ class AgeWallet_Admin {
 		add_submenu_page(
 			$this->base_slug,
 			__( 'Strict Mode Settings', 'agewallet-oidc-client' ),
-			__( 'Strict Mode', 'agewallet-oidc-client' ),
+			__( 'Strict Mode Settings', 'agewallet-oidc-client' ),
 			$cap,
-			'agewallet-scripts',
+			'agewallet-strict-mode',
 			array( $this, 'render_scripts_page' )
 		);
 
@@ -212,10 +212,10 @@ class AgeWallet_Admin {
 		register_setting( $this->group_scripts, 'agewallet_gtm_id', array( 'sanitize_callback' => array( $this, 'sanitize_gtm_id' ), 'default' => '' ) );
 		register_setting( $this->group_scripts, 'agewallet_fb_pixel_id', array( 'sanitize_callback' => array( $this, 'sanitize_fb_pixel_id' ), 'default' => '' ) );
 
-		add_settings_section( 'aw_sec_scripts', __( 'Strict Mode Analytics', 'agewallet-oidc-client' ), array( $this, 'render_scripts_intro' ), 'agewallet-scripts' );
-		add_settings_field( 'agewallet_ga4_id', __( 'Google Analytics 4 — Measurement ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-scripts', 'aw_sec_scripts', array( 'label_for' => 'agewallet_ga4_id', 'placeholder' => 'G-XXXXXXXXXX', 'desc' => __( 'Renders the official gtag.js snippet on the strict-mode loading screen when set.', 'agewallet-oidc-client' ) ) );
-		add_settings_field( 'agewallet_gtm_id', __( 'Google Tag Manager — Container ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-scripts', 'aw_sec_scripts', array( 'label_for' => 'agewallet_gtm_id', 'placeholder' => 'GTM-XXXXXXX', 'desc' => __( 'Renders the official GTM snippet when set.', 'agewallet-oidc-client' ) ) );
-		add_settings_field( 'agewallet_fb_pixel_id', __( 'Facebook Pixel — ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-scripts', 'aw_sec_scripts', array( 'label_for' => 'agewallet_fb_pixel_id', 'placeholder' => '123456789012345', 'desc' => __( 'Numeric pixel ID. Renders the official fbevents.js snippet when set.', 'agewallet-oidc-client' ) ) );
+		add_settings_section( 'aw_sec_scripts', __( 'Strict Mode Analytics', 'agewallet-oidc-client' ), array( $this, 'render_scripts_intro' ), 'agewallet-strict-mode' );
+		add_settings_field( 'agewallet_ga4_id', __( 'Google Analytics 4 — Measurement ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'aw_sec_scripts', array( 'label_for' => 'agewallet_ga4_id', 'placeholder' => 'G-XXXXXXXXXX', 'desc' => __( 'Renders the official gtag.js snippet on the strict-mode loading screen when set.', 'agewallet-oidc-client' ) ) );
+		add_settings_field( 'agewallet_gtm_id', __( 'Google Tag Manager — Container ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'aw_sec_scripts', array( 'label_for' => 'agewallet_gtm_id', 'placeholder' => 'GTM-XXXXXXX', 'desc' => __( 'Renders the official GTM snippet when set.', 'agewallet-oidc-client' ) ) );
+		add_settings_field( 'agewallet_fb_pixel_id', __( 'Facebook Pixel — ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'aw_sec_scripts', array( 'label_for' => 'agewallet_fb_pixel_id', 'placeholder' => '123456789012345', 'desc' => __( 'Numeric pixel ID. Renders the official fbevents.js snippet when set.', 'agewallet-oidc-client' ) ) );
 
 		// --- Group 5: Cache Control ---
 		register_setting( $this->group_debug, AgeWalletOIDCClientPro::OPT_DEBUG_MODE, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ), 'default' => 0 ) );
@@ -324,7 +324,7 @@ class AgeWallet_Admin {
 					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-credentials' ) ); ?>"><strong><?php esc_html_e( 'Step 1: Set up your API Credentials', 'agewallet-oidc-client' ); ?></strong></a></li>
 					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-guarding' ) ); ?>"><strong><?php esc_html_e( 'Step 2: Set up Content Guarding Rules', 'agewallet-oidc-client' ); ?></strong></a></li>
 					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-appearance' ) ); ?>"><?php esc_html_e( 'Step 3: Customize Gate Appearance', 'agewallet-oidc-client' ); ?></a> <span class="description">(<?php esc_html_e( 'Optional', 'agewallet-oidc-client' ); ?>)</span></li>
-					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-scripts' ) ); ?>"><?php esc_html_e( 'Step 4: Strict Mode Settings', 'agewallet-oidc-client' ); ?></a> <span class="description">(<?php esc_html_e( 'Strict Mode Only', 'agewallet-oidc-client' ); ?>)</span></li>
+					<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=agewallet-strict-mode' ) ); ?>"><?php esc_html_e( 'Step 4: Strict Mode Settings', 'agewallet-oidc-client' ); ?></a> <span class="description">(<?php esc_html_e( 'Strict Mode Only', 'agewallet-oidc-client' ); ?>)</span></li>
 				</ol>
 			</div>
 			<?php
@@ -349,7 +349,7 @@ class AgeWallet_Admin {
 
 	public function render_appearance_page() {
 		$next = array(
-			'slug'  => 'agewallet-scripts',
+			'slug'  => 'agewallet-strict-mode',
 			'label' => __( 'Next: Strict Mode Settings', 'agewallet-oidc-client' ),
 		);
 		$this->render_page_wrapper( __( 'Step 3: Gate Appearance', 'agewallet-oidc-client' ), null, $this->group_appearance, $next );
