@@ -144,13 +144,13 @@ class AgeWallet_Admin {
 		register_setting( $this->group_credentials, 'agewallet_metadata_mode', array( 'sanitize_callback' => array( $this, 'sanitize_metadata_mode' ), 'default' => AgeWallet_Metadata_Builder::MODE_STATIC ) );
 		register_setting( $this->group_credentials, 'agewallet_auto_metadata_fields', array( 'sanitize_callback' => array( $this, 'sanitize_auto_metadata_fields' ), 'default' => array() ) );
 
-		add_settings_section( 'aw_sec_creds', __( 'API Configuration', 'agewallet-oidc-client' ), '__return_false', 'agewallet-credentials' );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_CLIENT_ID, __( 'Client ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-credentials', 'aw_sec_creds', array( 'label_for' => AgeWalletOIDCClientPro::OPT_CLIENT_ID, 'class' => 'regular-text' ) );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_CLIENT_SECRET, __( 'Client Secret', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-credentials', 'aw_sec_creds', array( 'label_for' => AgeWalletOIDCClientPro::OPT_CLIENT_SECRET, 'class' => 'regular-text', 'type' => 'password' ) );
-		add_settings_field( 'oidc_redirect_uri', __( 'Redirect URI', 'agewallet-oidc-client' ), array( $this, 'render_redirect_uri' ), 'agewallet-credentials', 'aw_sec_creds' );
+		add_settings_section( 'agewallet_sec_creds', __( 'API Configuration', 'agewallet-oidc-client' ), '__return_false', 'agewallet-credentials' );
+		add_settings_field( AgeWalletOIDCClientPro::OPT_CLIENT_ID, __( 'Client ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-credentials', 'agewallet_sec_creds', array( 'label_for' => AgeWalletOIDCClientPro::OPT_CLIENT_ID, 'class' => 'regular-text' ) );
+		add_settings_field( AgeWalletOIDCClientPro::OPT_CLIENT_SECRET, __( 'Client Secret', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-credentials', 'agewallet_sec_creds', array( 'label_for' => AgeWalletOIDCClientPro::OPT_CLIENT_SECRET, 'class' => 'regular-text', 'type' => 'password' ) );
+		add_settings_field( 'oidc_redirect_uri', __( 'Redirect URI', 'agewallet-oidc-client' ), array( $this, 'render_redirect_uri' ), 'agewallet-credentials', 'agewallet_sec_creds' );
 
-		add_settings_section( 'aw_sec_metadata', __( 'Verification Metadata', 'agewallet-oidc-client' ), array( $this, 'render_metadata_section_description' ), 'agewallet-credentials' );
-		add_settings_field( 'agewallet_metadata_mode', __( 'Metadata source', 'agewallet-oidc-client' ), array( $this, 'render_metadata_source_ui' ), 'agewallet-credentials', 'aw_sec_metadata' );
+		add_settings_section( 'agewallet_sec_metadata', __( 'Verification Metadata', 'agewallet-oidc-client' ), array( $this, 'render_metadata_section_description' ), 'agewallet-credentials' );
+		add_settings_field( 'agewallet_metadata_mode', __( 'Metadata source', 'agewallet-oidc-client' ), array( $this, 'render_metadata_source_ui' ), 'agewallet-credentials', 'agewallet_sec_metadata' );
 
 		// --- Group 2: Guarding ---
 		register_setting( $this->group_guarding, 'agewallet_protection_mode', array( 'sanitize_callback' => 'sanitize_text_field', 'default' => 'standard' ) );
@@ -160,23 +160,23 @@ class AgeWallet_Admin {
 		// NEW: Taxonomy Rules
 		register_setting( $this->group_guarding, 'agewallet_taxonomy_rules', array( 'sanitize_callback' => array( $this, 'sanitize_taxonomy_rules' ), 'default' => array() ) );
 
-		add_settings_section( 'aw_sec_guard', __( 'Protection Rules', 'agewallet-oidc-client' ), array( $this, 'render_guarding_section_description' ), 'agewallet-guarding' );
-		add_settings_field( 'agewallet_protection_mode', __( 'Security Mode', 'agewallet-oidc-client' ), array( $this, 'render_protection_mode_radio' ), 'agewallet-guarding', 'aw_sec_guard' );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_BLOCK_MODE, __( 'Scope of Protection', 'agewallet-oidc-client' ), array( $this, 'render_radio_buttons' ), 'agewallet-guarding', 'aw_sec_guard', array( 'option_name' => AgeWalletOIDCClientPro::OPT_BLOCK_MODE, 'options' => array( 'none' => __( 'No automatic protection.', 'agewallet-oidc-client' ), 'all_but_home' => __( 'Protect entire site, except homepage.', 'agewallet-oidc-client' ), 'all' => __( 'Protect entire site, including homepage.', 'agewallet-oidc-client' ), 'specific' => __( 'Protect only specific URL paths.', 'agewallet-oidc-client' ) ) ) );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_BLOCKED_PATHS, __( 'Paths to Protect', 'agewallet-oidc-client' ), array( $this, 'render_textarea' ), 'agewallet-guarding', 'aw_sec_guard', array( 'label_for' => AgeWalletOIDCClientPro::OPT_BLOCKED_PATHS, 'class' => 'large-text', 'rows' => 5, 'placeholder' => '/shop/, /articles/premium-content/', 'desc' => __( 'Only used if Scope is "specific". Enter comma-separated paths.', 'agewallet-oidc-client' ) ) );
-		add_settings_field( 'agewallet_excluded_paths', __( 'Paths to Exclude', 'agewallet-oidc-client' ), array( $this, 'render_simple_textarea' ), 'agewallet-guarding', 'aw_sec_guard', array( 'label_for' => 'agewallet_excluded_paths', 'class' => 'large-text', 'rows' => 3, 'placeholder' => '/privacy-policy/, /contact/', 'desc' => __( 'Exceptions to Global Protection. Any URL containing these paths will be visible.', 'agewallet-oidc-client' ) ) );
+		add_settings_section( 'agewallet_sec_guard', __( 'Protection Rules', 'agewallet-oidc-client' ), array( $this, 'render_guarding_section_description' ), 'agewallet-guarding' );
+		add_settings_field( 'agewallet_protection_mode', __( 'Security Mode', 'agewallet-oidc-client' ), array( $this, 'render_protection_mode_radio' ), 'agewallet-guarding', 'agewallet_sec_guard' );
+		add_settings_field( AgeWalletOIDCClientPro::OPT_BLOCK_MODE, __( 'Scope of Protection', 'agewallet-oidc-client' ), array( $this, 'render_radio_buttons' ), 'agewallet-guarding', 'agewallet_sec_guard', array( 'option_name' => AgeWalletOIDCClientPro::OPT_BLOCK_MODE, 'options' => array( 'none' => __( 'No automatic protection.', 'agewallet-oidc-client' ), 'all_but_home' => __( 'Protect entire site, except homepage.', 'agewallet-oidc-client' ), 'all' => __( 'Protect entire site, including homepage.', 'agewallet-oidc-client' ), 'specific' => __( 'Protect only specific URL paths.', 'agewallet-oidc-client' ) ) ) );
+		add_settings_field( AgeWalletOIDCClientPro::OPT_BLOCKED_PATHS, __( 'Paths to Protect', 'agewallet-oidc-client' ), array( $this, 'render_textarea' ), 'agewallet-guarding', 'agewallet_sec_guard', array( 'label_for' => AgeWalletOIDCClientPro::OPT_BLOCKED_PATHS, 'class' => 'large-text', 'rows' => 5, 'placeholder' => '/shop/, /articles/premium-content/', 'desc' => __( 'Only used if Scope is "specific". Enter comma-separated paths.', 'agewallet-oidc-client' ) ) );
+		add_settings_field( 'agewallet_excluded_paths', __( 'Paths to Exclude', 'agewallet-oidc-client' ), array( $this, 'render_simple_textarea' ), 'agewallet-guarding', 'agewallet_sec_guard', array( 'label_for' => 'agewallet_excluded_paths', 'class' => 'large-text', 'rows' => 3, 'placeholder' => '/privacy-policy/, /contact/', 'desc' => __( 'Exceptions to Global Protection. Any URL containing these paths will be visible.', 'agewallet-oidc-client' ) ) );
 		// Taxonomy Rules UI
-		add_settings_section( 'aw_sec_tax_rules', __( 'Taxonomy Rules', 'agewallet-oidc-client' ), '__return_false', 'agewallet-guarding' );
-		add_settings_field( 'agewallet_taxonomy_rules', __( 'Configure Taxonomies', 'agewallet-oidc-client' ), array( $this, 'render_taxonomy_rules_ui' ), 'agewallet-guarding', 'aw_sec_tax_rules' );
+		add_settings_section( 'agewallet_sec_tax_rules', __( 'Taxonomy Rules', 'agewallet-oidc-client' ), '__return_false', 'agewallet-guarding' );
+		add_settings_field( 'agewallet_taxonomy_rules', __( 'Configure Taxonomies', 'agewallet-oidc-client' ), array( $this, 'render_taxonomy_rules_ui' ), 'agewallet-guarding', 'agewallet_sec_tax_rules' );
 
 		// WooCommerce Rules — only shown when WC is active.
 		if ( class_exists( 'WooCommerce' ) ) {
 			register_setting( $this->group_guarding, AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, array( 'sanitize_callback' => array( $this, 'sanitize_wc_gate_mode' ), 'default' => AgeWalletOIDCClientPro::WC_GATE_MODE_OFF ) );
 			register_setting( $this->group_guarding, AgeWalletOIDCClientPro::OPT_WC_METADATA_FIELDS, array( 'sanitize_callback' => array( $this, 'sanitize_wc_metadata_fields' ), 'default' => array( 'cart_hash', 'cart_total', 'currency' ) ) );
 
-			add_settings_section( 'aw_sec_wc', __( 'WooCommerce', 'agewallet-oidc-client' ), array( $this, 'render_wc_section_description' ), 'agewallet-guarding' );
-			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, __( 'Checkout gating', 'agewallet-oidc-client' ), array( $this, 'render_wc_gate_mode_radio' ), 'agewallet-guarding', 'aw_sec_wc', array( 'label_for' => AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT ) );
-			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_METADATA_FIELDS, __( 'Checkout metadata fields', 'agewallet-oidc-client' ), array( $this, 'render_wc_metadata_fields_ui' ), 'agewallet-guarding', 'aw_sec_wc' );
+			add_settings_section( 'agewallet_sec_wc', __( 'WooCommerce', 'agewallet-oidc-client' ), array( $this, 'render_wc_section_description' ), 'agewallet-guarding' );
+			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT, __( 'Checkout gating', 'agewallet-oidc-client' ), array( $this, 'render_wc_gate_mode_radio' ), 'agewallet-guarding', 'agewallet_sec_wc', array( 'label_for' => AgeWalletOIDCClientPro::OPT_WC_GATE_CHECKOUT ) );
+			add_settings_field( AgeWalletOIDCClientPro::OPT_WC_METADATA_FIELDS, __( 'Checkout metadata fields', 'agewallet-oidc-client' ), array( $this, 'render_wc_metadata_fields_ui' ), 'agewallet-guarding', 'agewallet_sec_wc' );
 		}
 
 		// --- Group 3: Appearance ---
@@ -194,28 +194,28 @@ class AgeWallet_Admin {
 		register_setting( $this->group_appearance, 'agewallet_radius_card', array( 'sanitize_callback' => array( $this, 'sanitize_radius' ), 'default' => 16 ) );
 		register_setting( $this->group_appearance, 'agewallet_radius_btn', array( 'sanitize_callback' => array( $this, 'sanitize_radius' ), 'default' => 12 ) );
 
-		add_settings_section( 'aw_sec_app', __( 'Gate Styling', 'agewallet-oidc-client' ), '__return_false', 'agewallet-appearance' );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_LOGO_ID, __( 'Gate Logo', 'agewallet-oidc-client' ), array( $this, 'render_media_uploader' ), 'agewallet-appearance', 'aw_sec_app', array( 'option_name' => AgeWalletOIDCClientPro::OPT_LOGO_ID ) );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_LOGO_WIDTH_PX, __( 'Logo Width (px)', 'agewallet-oidc-client' ), array( $this, 'render_number_input' ), 'agewallet-appearance', 'aw_sec_app', array( 'label_for' => AgeWalletOIDCClientPro::OPT_LOGO_WIDTH_PX, 'class' => 'small-text', 'min' => 0, 'step' => 1, 'desc' => __( 'Leave 0 for natural width.', 'agewallet-oidc-client' ) ) );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_COPY_WYSIWYG, __( 'Gate Copy', 'agewallet-oidc-client' ), array( $this, 'render_wysiwyg_editor' ), 'agewallet-appearance', 'aw_sec_app', array( 'option_name' => AgeWalletOIDCClientPro::OPT_COPY_WYSIWYG ) );
-		add_settings_field( AgeWalletOIDCClientPro::OPT_HIDE_HEADING, __( 'Hide Default Heading', 'agewallet-oidc-client' ), array( $this, 'render_checkbox' ), 'agewallet-appearance', 'aw_sec_app', array( 'label_for' => AgeWalletOIDCClientPro::OPT_HIDE_HEADING, 'label' => __( 'Hide the "You Must Verify Your Age" heading.', 'agewallet-oidc-client' ) ) );
+		add_settings_section( 'agewallet_sec_app', __( 'Gate Styling', 'agewallet-oidc-client' ), '__return_false', 'agewallet-appearance' );
+		add_settings_field( AgeWalletOIDCClientPro::OPT_LOGO_ID, __( 'Gate Logo', 'agewallet-oidc-client' ), array( $this, 'render_media_uploader' ), 'agewallet-appearance', 'agewallet_sec_app', array( 'option_name' => AgeWalletOIDCClientPro::OPT_LOGO_ID ) );
+		add_settings_field( AgeWalletOIDCClientPro::OPT_LOGO_WIDTH_PX, __( 'Logo Width (px)', 'agewallet-oidc-client' ), array( $this, 'render_number_input' ), 'agewallet-appearance', 'agewallet_sec_app', array( 'label_for' => AgeWalletOIDCClientPro::OPT_LOGO_WIDTH_PX, 'class' => 'small-text', 'min' => 0, 'step' => 1, 'desc' => __( 'Leave 0 for natural width.', 'agewallet-oidc-client' ) ) );
+		add_settings_field( AgeWalletOIDCClientPro::OPT_COPY_WYSIWYG, __( 'Gate Copy', 'agewallet-oidc-client' ), array( $this, 'render_wysiwyg_editor' ), 'agewallet-appearance', 'agewallet_sec_app', array( 'option_name' => AgeWalletOIDCClientPro::OPT_COPY_WYSIWYG ) );
+		add_settings_field( AgeWalletOIDCClientPro::OPT_HIDE_HEADING, __( 'Hide Default Heading', 'agewallet-oidc-client' ), array( $this, 'render_checkbox' ), 'agewallet-appearance', 'agewallet_sec_app', array( 'label_for' => AgeWalletOIDCClientPro::OPT_HIDE_HEADING, 'label' => __( 'Hide the "You Must Verify Your Age" heading.', 'agewallet-oidc-client' ) ) );
 
-		add_settings_section( 'aw_sec_colors', __( 'Colours', 'agewallet-oidc-client' ), array( $this, 'render_colors_intro' ), 'agewallet-appearance' );
+		add_settings_section( 'agewallet_sec_colors', __( 'Colours', 'agewallet-oidc-client' ), array( $this, 'render_colors_intro' ), 'agewallet-appearance' );
 		foreach ( self::appearance_color_fields() as $opt => $label ) {
-			add_settings_field( $opt, $label, array( $this, 'render_color_picker' ), 'agewallet-appearance', 'aw_sec_colors', array( 'option_name' => $opt ) );
+			add_settings_field( $opt, $label, array( $this, 'render_color_picker' ), 'agewallet-appearance', 'agewallet_sec_colors', array( 'option_name' => $opt ) );
 		}
-		add_settings_field( 'agewallet_radius_card', __( 'Card border radius (px)', 'agewallet-oidc-client' ), array( $this, 'render_number_input' ), 'agewallet-appearance', 'aw_sec_colors', array( 'label_for' => 'agewallet_radius_card', 'class' => 'small-text', 'min' => 0, 'max' => 32, 'step' => 1 ) );
-		add_settings_field( 'agewallet_radius_btn', __( 'Button border radius (px)', 'agewallet-oidc-client' ), array( $this, 'render_number_input' ), 'agewallet-appearance', 'aw_sec_colors', array( 'label_for' => 'agewallet_radius_btn', 'class' => 'small-text', 'min' => 0, 'max' => 32, 'step' => 1 ) );
+		add_settings_field( 'agewallet_radius_card', __( 'Card border radius (px)', 'agewallet-oidc-client' ), array( $this, 'render_number_input' ), 'agewallet-appearance', 'agewallet_sec_colors', array( 'label_for' => 'agewallet_radius_card', 'class' => 'small-text', 'min' => 0, 'max' => 32, 'step' => 1 ) );
+		add_settings_field( 'agewallet_radius_btn', __( 'Button border radius (px)', 'agewallet-oidc-client' ), array( $this, 'render_number_input' ), 'agewallet-appearance', 'agewallet_sec_colors', array( 'label_for' => 'agewallet_radius_btn', 'class' => 'small-text', 'min' => 0, 'max' => 32, 'step' => 1 ) );
 
 		// --- Group 4: Strict-mode analytics ---
 		register_setting( $this->group_scripts, 'agewallet_ga4_id', array( 'sanitize_callback' => array( $this, 'sanitize_ga4_id' ), 'default' => '' ) );
 		register_setting( $this->group_scripts, 'agewallet_gtm_id', array( 'sanitize_callback' => array( $this, 'sanitize_gtm_id' ), 'default' => '' ) );
 		register_setting( $this->group_scripts, 'agewallet_fb_pixel_id', array( 'sanitize_callback' => array( $this, 'sanitize_fb_pixel_id' ), 'default' => '' ) );
 
-		add_settings_section( 'aw_sec_scripts', __( 'Strict Mode Analytics', 'agewallet-oidc-client' ), array( $this, 'render_scripts_intro' ), 'agewallet-strict-mode' );
-		add_settings_field( 'agewallet_ga4_id', __( 'Google Analytics 4 — Measurement ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'aw_sec_scripts', array( 'label_for' => 'agewallet_ga4_id', 'placeholder' => 'G-XXXXXXXXXX', 'desc' => __( 'Renders the official gtag.js snippet on the strict-mode loading screen when set.', 'agewallet-oidc-client' ) ) );
-		add_settings_field( 'agewallet_gtm_id', __( 'Google Tag Manager — Container ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'aw_sec_scripts', array( 'label_for' => 'agewallet_gtm_id', 'placeholder' => 'GTM-XXXXXXX', 'desc' => __( 'Renders the official GTM snippet when set.', 'agewallet-oidc-client' ) ) );
-		add_settings_field( 'agewallet_fb_pixel_id', __( 'Facebook Pixel — ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'aw_sec_scripts', array( 'label_for' => 'agewallet_fb_pixel_id', 'placeholder' => '123456789012345', 'desc' => __( 'Numeric pixel ID. Renders the official fbevents.js snippet when set.', 'agewallet-oidc-client' ) ) );
+		add_settings_section( 'agewallet_sec_scripts', __( 'Strict Mode Analytics', 'agewallet-oidc-client' ), array( $this, 'render_scripts_intro' ), 'agewallet-strict-mode' );
+		add_settings_field( 'agewallet_ga4_id', __( 'Google Analytics 4 — Measurement ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'agewallet_sec_scripts', array( 'label_for' => 'agewallet_ga4_id', 'placeholder' => 'G-XXXXXXXXXX', 'desc' => __( 'Renders the official gtag.js snippet on the strict-mode loading screen when set.', 'agewallet-oidc-client' ) ) );
+		add_settings_field( 'agewallet_gtm_id', __( 'Google Tag Manager — Container ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'agewallet_sec_scripts', array( 'label_for' => 'agewallet_gtm_id', 'placeholder' => 'GTM-XXXXXXX', 'desc' => __( 'Renders the official GTM snippet when set.', 'agewallet-oidc-client' ) ) );
+		add_settings_field( 'agewallet_fb_pixel_id', __( 'Facebook Pixel — ID', 'agewallet-oidc-client' ), array( $this, 'render_text_input' ), 'agewallet-strict-mode', 'agewallet_sec_scripts', array( 'label_for' => 'agewallet_fb_pixel_id', 'placeholder' => '123456789012345', 'desc' => __( 'Numeric pixel ID. Renders the official fbevents.js snippet when set.', 'agewallet-oidc-client' ) ) );
 
 		// --- Group 5: Cache Control ---
 		register_setting( $this->group_debug, AgeWalletOIDCClientPro::OPT_DEBUG_MODE, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ), 'default' => 0 ) );
@@ -223,17 +223,17 @@ class AgeWallet_Admin {
 		register_setting( $this->group_debug, 'agewallet_cache_ttl', array( 'sanitize_callback' => array( $this, 'sanitize_positive_int' ), 'default' => 14400 ) ); // Default 4 hours (14400s)
 
 		// Section 1: Cache Management
-		add_settings_section( 'aw_sec_cache', __( 'Cache Management', 'agewallet-oidc-client' ), array( $this, 'render_cache_section_description' ), 'agewallet-cache-control' );
-		add_settings_field( 'agewallet_cache_ttl', __( 'Cache Auto-Clear Schedule', 'agewallet-oidc-client' ), array( $this, 'render_cache_ttl_dropdown' ), 'agewallet-cache-control', 'aw_sec_cache' );
+		add_settings_section( 'agewallet_sec_cache', __( 'Cache Management', 'agewallet-oidc-client' ), array( $this, 'render_cache_section_description' ), 'agewallet-cache-control' );
+		add_settings_field( 'agewallet_cache_ttl', __( 'Cache Auto-Clear Schedule', 'agewallet-oidc-client' ), array( $this, 'render_cache_ttl_dropdown' ), 'agewallet-cache-control', 'agewallet_sec_cache' );
 
 		// Section 2: Developer Logging
-		add_settings_section( 'aw_sec_logging', __( 'Developer Tools', 'agewallet-oidc-client' ), array( $this, 'render_logging_section_description' ), 'agewallet-cache-control' );
+		add_settings_section( 'agewallet_sec_logging', __( 'Developer Tools', 'agewallet-oidc-client' ), array( $this, 'render_logging_section_description' ), 'agewallet-cache-control' );
 		add_settings_field(
 			AgeWalletOIDCClientPro::OPT_DEBUG_MODE,
 			__( 'Enable Logging', 'agewallet-oidc-client' ),
 			array( $this, 'render_checkbox' ),
 			'agewallet-cache-control',
-			'aw_sec_logging',
+			'agewallet_sec_logging',
 			array(
 				'label_for' => AgeWalletOIDCClientPro::OPT_DEBUG_MODE,
 				'label'     => __( 'Enable plugin debug logging', 'agewallet-oidc-client' ),
@@ -520,23 +520,8 @@ class AgeWallet_Admin {
 
 		echo '</fieldset>';
 
-		// Inline JS to toggle sub-blocks based on selected radio.
-		?>
-		<script>
-		(function(){
-			var radios = document.querySelectorAll('input.aw-md-mode');
-			function toggle(){
-				var v = document.querySelector('input.aw-md-mode:checked');
-				v = v ? v.value : '';
-				document.querySelectorAll('.aw-md-block').forEach(function(el){ el.style.display = 'none'; });
-				var target = document.querySelector('.aw-md-block-' + v);
-				if (target) target.style.display = '';
-			}
-			radios.forEach(function(r){ r.addEventListener('change', toggle); });
-			toggle();
-		})();
-		</script>
-		<?php
+		// The metadata-source toggle JS is enqueued via wp_add_inline_script on the
+		// 'agewallet-admin-settings' handle (see enqueue_admin_scripts) — no inline <script> here.
 	}
 
 	public function render_wc_section_description() {
@@ -1281,6 +1266,14 @@ class AgeWallet_Admin {
 				'blockedPathsWrapperId' => 'agewallet-blocked-paths-wrapper',
 				'ajaxUrl'               => admin_url( 'admin-ajax.php' ),
 			)
+		);
+
+		// Metadata-source radio toggle (previously an inline <script> on the settings page;
+		// moved here so admin screens carry no inline JS). Single-quoted JS inside a
+		// double-quoted PHP string — no interpolation, no escaping needed.
+		wp_add_inline_script(
+			'agewallet-admin-settings',
+			"(function(){var radios=document.querySelectorAll('input.aw-md-mode');function awMdToggle(){var v=document.querySelector('input.aw-md-mode:checked');v=v?v.value:'';document.querySelectorAll('.aw-md-block').forEach(function(el){el.style.display='none';});var t=document.querySelector('.aw-md-block-'+v);if(t){t.style.display='';}}radios.forEach(function(r){r.addEventListener('change',awMdToggle);});awMdToggle();})();"
 		);
 	}
 

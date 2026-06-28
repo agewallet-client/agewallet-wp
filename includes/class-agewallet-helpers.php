@@ -483,7 +483,10 @@
             if ( empty( $lines ) ) {
                 return;
             }
-            // Output: property names are hardcoded; values are sanitized hex / "Npx".
+            // Emitted only by the strict-mode skeleton (templates/gatekeeper.php) — a standalone
+            // HTML document rendered before wp_head()/the enqueue pipeline run, so an inline <style>
+            // is required. Property names are hardcoded; values are sanitized hex / "Npx".
+            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- strict-mode skeleton renders before enqueue; see note.
             echo '<style id="agewallet-vars">:root{' . implode( '', array_map( 'esc_html', $lines ) ) . '}</style>';
         }
 
@@ -497,6 +500,9 @@
          * @since 1.5.4
          */
         public function render_analytics_snippets( $placement = 'head' ) {
+            // phpcs:disable WordPress.WP.EnqueuedResources.NonEnqueuedScript -- These are the vendors'
+            // canonical GA4 / GTM / Facebook-Pixel snippets, emitted only on the strict-mode skeleton
+            // page (which renders before the wp_enqueue pipeline exists); they must be inline.
             $ga4   = (string) get_option( 'agewallet_ga4_id',      '' );
             $gtm   = (string) get_option( 'agewallet_gtm_id',      '' );
             $pixel = (string) get_option( 'agewallet_fb_pixel_id', '' );
@@ -540,6 +546,7 @@
                     esc_attr( $pixel )
                 );
             }
+            // phpcs:enable WordPress.WP.EnqueuedResources.NonEnqueuedScript
         }
 
 

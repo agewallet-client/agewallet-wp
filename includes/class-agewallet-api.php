@@ -291,7 +291,7 @@ class AgeWallet_API {
 	 */
 	private function build_cache( $target_url, $post_id, $url_hash ) {
 		// Add the secret bypass key to the URL.
-		$url = add_query_arg( 'aw_cache_bypass', $this->bypass_secret, $target_url );
+		$url = add_query_arg( 'agewallet_cache_bypass', $this->bypass_secret, $target_url );
 
 		$url = apply_filters( 'agewallet_loopback_url', $url, $post_id );
 
@@ -360,9 +360,9 @@ class AgeWallet_API {
 		// mechanism for loopback requests originating from our own build_cache() call. No nonce
 		// is involved or needed — this is a server-to-server signed request, not a form submit.
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended
-		$param_secret = isset( $_GET['aw_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['aw_cache_bypass'] ) ) : '';
+		$param_secret = isset( $_GET['agewallet_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['agewallet_cache_bypass'] ) ) : '';
 
-		if ( isset( $_GET['aw_cache_bypass'] ) && hash_equals( $this->bypass_secret, $param_secret ) ) {
+		if ( isset( $_GET['agewallet_cache_bypass'] ) && hash_equals( $this->bypass_secret, $param_secret ) ) {
 			// phpcs:enable WordPress.Security.NonceVerification.Recommended
 			if ( ! defined( 'AGEWALLET_CACHE_BUILDING' ) ) {
 				define( 'AGEWALLET_CACHE_BUILDING', true );

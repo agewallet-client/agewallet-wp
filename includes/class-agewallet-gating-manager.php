@@ -147,7 +147,7 @@ class AgeWallet_Gating_Manager {
 		// HMAC bypass-secret read; auth is hash_equals below, not a nonce. Server-to-server signed
 		// request from our own build_cache() loopback, not a form submit.
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended
-		$param_secret  = isset( $_GET['aw_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['aw_cache_bypass'] ) ) : '';
+		$param_secret  = isset( $_GET['agewallet_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['agewallet_cache_bypass'] ) ) : '';
 
 		// --- DEBUGGING INSTRUMENTATION ---
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -155,7 +155,7 @@ class AgeWallet_Gating_Manager {
 			if ( ! empty( $param_secret ) ) {
 				$this->log_debug( '--- BYPASS DEBUG ---' );
 				$this->log_debug( 'Stored Secret: ' . $bypass_secret );
-				$this->log_debug( 'Incoming Raw: ' . ( isset( $_GET['aw_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['aw_cache_bypass'] ) ) : 'NULL' ) );
+				$this->log_debug( 'Incoming Raw: ' . ( isset( $_GET['agewallet_cache_bypass'] ) ? sanitize_text_field( wp_unslash( $_GET['agewallet_cache_bypass'] ) ) : 'NULL' ) );
 				$this->log_debug( 'Incoming Stripped: ' . $param_secret );
 				$this->log_debug( 'Constant Defined: ' . ( defined( 'AGEWALLET_CACHE_BUILDING' ) ? 'YES' : 'NO' ) );
 			}
@@ -665,17 +665,25 @@ class AgeWallet_Gating_Manager {
 		}
 
 		// Output the wrapper structure. Content starts hidden, placeholder starts visible.
-		$output  = '<div class="agewallet-protected-wrapper">';
-		$output .= '<div class="agewallet-protected-content" style="display: none;">';
+		$wrapper_class     = 'agewallet-protected-wrapper';
+		$content_class     = 'agewallet-protected-content';
+		$placeholder_class = 'agewallet-protected-placeholder';
+
+		$output  = '<div class="' . esc_attr( $wrapper_class ) . '">';
+		$output .= '<div class="' . esc_attr( $content_class ) . '" style="display: none;">';
 		$output .= $processed_content;
 		$output .= '</div>';
-		$output .= '<div class="agewallet-protected-placeholder" style="display: block;">';
+		$output .= '<div class="' . esc_attr( $placeholder_class ) . '" style="display: block;">';
 		$output .= $placeholder_html;
 		$output .= '</div>';
 		$output .= '</div>';
 
-		// Internally-escaped: $placeholder_html via get_gate_html(), $processed_content via WP shortcode pipeline.
-		return $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Gate HTML internally escaped; $content goes through WP shortcode pipeline.
+		// $output's dynamic parts are all pre-escaped: the wrapper <div> class attributes via
+		// esc_attr() above; $placeholder_html inside get_gate_html() (esc_url/esc_attr/esc_html/
+		// wp_kses_post); and $processed_content is the author's inner content already run through
+		// WordPress's own shortcode/HTML pipeline (do_shortcode) — re-escaping it would corrupt
+		// legitimate markup.
+		return $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- all dynamic parts pre-escaped; see note above.
 	}
 
 	/**
@@ -709,7 +717,7 @@ class AgeWallet_Gating_Manager {
 			$md_value = AgeWallet_Metadata_Builder::build();
 			if ( is_string( $md_value ) && '' !== $md_value ) {
 				$signed_md  = AgeWallet_Helpers::instance()->sign_metadata( $md_value );
-				$agree_href = add_query_arg( 'md', urlencode( $signed_md ), $agree_href );
+				$agree_href = add_query_arg( 'agewallet_md', urlencode( $signed_md ), $agree_href );
 			}
 		}
 
@@ -718,7 +726,7 @@ class AgeWallet_Gating_Manager {
 		// so it stays out of the final metadata payload stored against the verification.
 		if ( $agree_href && class_exists( 'AgeWallet_WooCommerce' ) && AgeWallet_WooCommerce::is_checkout_request() ) {
 			$signed_origin = AgeWallet_Helpers::instance()->sign_metadata( 'checkout' );
-			$agree_href    = add_query_arg( 'aw_o', urlencode( $signed_origin ), $agree_href );
+			$agree_href    = add_query_arg( 'agewallet_origin', urlencode( $signed_origin ), $agree_href );
 		}
 
 		if ( ! $agree_href ) {
@@ -772,7 +780,7 @@ class AgeWallet_Gating_Manager {
 			</div>
 
 			<div class="aw-gate__buttons">
-				<button class="aw-gate__btn aw-gate__btn--no" type="button" onclick="var err = this.closest('.aw-gate').querySelector('.aw-gate__error'); if(err) err.style.display='block'; return false;">
+				<button class="aw-gate__btn aw-gate__btn--no" type="button">
 					<?php echo esc_html( $args['disagree_text'] ); ?>
 				</button>
 				<button class="aw-gate__btn aw-gate__btn--yes" type="button" data-redirect-url="<?php echo esc_url( $args['agree_url'] ); ?>">

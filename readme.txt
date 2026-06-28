@@ -4,7 +4,7 @@ Tags: age verification, age gate, agewallet, content restriction, oidc
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.4
+Stable tag: 1.5.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,6 +26,35 @@ Protection rules cover the whole site, individual URL paths, taxonomies (categor
 Every verification can carry an opaque metadata payload (≤4KB) that round-trips through the OIDC flow and surfaces on the `/userinfo` response, letting integrators correlate verifications with their own backend records.
 
 For the full feature enumeration see Other Notes; for setup walkthroughs, the available CSS hooks, and the developer-hook list, see the Usage Guide, CSS Customization Guide, and Developer Hooks sections below.
+
+== External services ==
+
+This plugin connects to one required third-party service and, optionally, to analytics services you choose to enable. Nothing is contacted until a visitor begins age verification (the AgeWallet service) or until you enter an analytics ID and use High Security (Strict) mode (the analytics services).
+
+= AgeWallet age-verification service (required) =
+
+The plugin's core purpose is to verify a visitor's age through the AgeWallet™ service using the OpenID Connect (OIDC) Authorization Code flow with PKCE. When a visitor starts verification, their browser is redirected to the AgeWallet authorization endpoint; the plugin's server then exchanges the returned authorization code for the verification outcome and requests the result from the userinfo endpoint.
+
+* Endpoints contacted: `https://app.agewallet.io/user/authorize`, `https://app.agewallet.io/user/token`, and `https://app.agewallet.io/user/userinfo`.
+* Data sent: your site's AgeWallet Client ID, a one-time authorization code, OIDC PKCE / state / nonce values, and an optional opaque metadata string that you configure (the plugin attaches no personal data of its own). The service returns only the pass / fail age-verification result.
+* When: each time a visitor begins age verification on your site.
+* This service is provided by AgeWallet LLC, which publishes separate Terms and Privacy policies for the two parties involved in a verification:
+    * Your visitors — the end users being verified: End-User Privacy Policy (https://agewallet.com/end-user-privacy-policy/) and End-User Terms & Conditions (https://agewallet.com/end-user-terms-conditions/).
+    * You — the site owner, an AgeWallet "Client": Client Privacy Policy (https://agewallet.com/privacy-policy/) and Client Terms of Service (https://agewallet.com/terms-conditions/).
+
+= Google Analytics 4 and Google Tag Manager (optional) =
+
+Only if you enter a GA4 Measurement ID or a Google Tag Manager Container ID on the Strict Mode Analytics tab, and only while High Security (Strict) mode is active, the plugin outputs Google's official analytics snippet into the strict-mode loading screen (where your theme's own tags cannot run). The plugin sends no data itself; the snippet is Google's standard tag, executed in the visitor's browser using the ID you supply.
+
+* Loaded from: `https://www.googletagmanager.com`.
+* This service is provided by Google. Terms of Service: https://policies.google.com/terms — Privacy Policy: https://policies.google.com/privacy
+
+= Facebook (Meta) Pixel (optional) =
+
+Only if you enter a Facebook Pixel ID on the Strict Mode Analytics tab, and only while High Security (Strict) mode is active, the plugin outputs Meta's official Pixel snippet into the strict-mode loading screen using the ID you supply. The plugin sends no data itself.
+
+* Loaded from: `https://connect.facebook.net` (with a `https://www.facebook.com` no-script fallback image).
+* This service is provided by Meta Platforms, Inc. Terms of Service: https://www.facebook.com/legal/terms — Privacy Policy: https://www.facebook.com/privacy/policy/
 
 == Installation ==
 
@@ -55,7 +84,7 @@ Upload your logo, customize the headline and body copy via the WYSIWYG editor, a
 
 = Does the plugin store any personal data about my visitors? =
 
-The plugin stores a signed HMAC verification cookie on the visitor's browser indicating that they passed age verification. No personal identifying information is stored on your WordPress site — verification is handled by the AgeWallet service, and only the pass/fail outcome reaches your site. See https://agewallet.com/privacy for full details.
+The plugin stores a signed HMAC verification cookie on the visitor's browser indicating that they passed age verification. No personal identifying information is stored on your WordPress site — verification is handled by the AgeWallet service, and only the pass/fail outcome reaches your site. See AgeWallet's End-User Privacy Policy (https://agewallet.com/end-user-privacy-policy/) for full details.
 
 = What happens to my data if I uninstall the plugin? =
 
@@ -404,6 +433,12 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 
 == Changelog ==
 
+= 1.5.5 =
+* Compliance: Added an "External services" section to the readme documenting the AgeWallet verification service and the optional Strict-mode analytics integrations (Google Analytics 4 / Google Tag Manager / Facebook Pixel), each with the provider's Terms and Privacy links.
+* Quality: Prefixed all remaining internal identifiers with the full `agewallet_` prefix — option keys, transient keys, ad-hoc URL query parameters, and admin settings-section IDs. No public release used the previous short keys, so no migration is required; existing demo installs simply re-enter settings once.
+* Quality: Removed the last inline admin `<script>` (the metadata-source toggle now loads via `wp_add_inline_script`) and the inline button `onclick` (now a delegated handler in `gate.js`). Remaining inline output (the Strict-mode skeleton and the vendor analytics snippets) is documented in-code as intentional, since it runs before the WordPress enqueue pipeline exists.
+* Quality: Wrapped the `[agewallet_protected]` shortcode's wrapper markup in `esc_attr()`.
+
 = 1.5.4 =
 * Structured Gate Appearance form: dedicated colour pickers (overlay backdrop, card background and border, body and disclaimer text, Agree / Disagree buttons) and card / button border-radius inputs replace the previous free-text "Custom CSS" field. Defaults match the previous look; saving without changes produces no visual diff.
 * Strict Mode Analytics: dedicated Google Analytics 4 Measurement ID, Google Tag Manager Container ID, and Facebook Pixel ID fields replace the previous free-text Header / Footer Scripts inputs. AgeWallet now renders the canonical official snippets for each provider when the corresponding ID is set.
@@ -459,6 +494,9 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 * Security: Hardened client-side script by adding click handlers dynamically instead of using inline attributes.
 
 == Upgrade Notice ==
+
+= 1.5.5 =
+Documentation and code-quality release for the WordPress.org directory (External services disclosure, full identifier prefixing, inline-script cleanup). No functional changes.
 
 = 1.4.0 =
 Adds metadata pass-through and a full WooCommerce integration with three-mode checkout gating (Off / Force Always / Conditional on Cart), per-product and per-category/tag regulated flagging, and per-checkout cart context attached as metadata.

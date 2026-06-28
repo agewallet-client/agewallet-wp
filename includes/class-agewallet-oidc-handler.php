@@ -23,7 +23,7 @@
 
      /**
       * Origin marker for the current /agewallet/launch request, set inside
-      * handle_launch() from the signed `aw_o` query param. Filter callbacks on
+      * handle_launch() from the signed `agewallet_origin` query param. Filter callbacks on
       * `agewallet_metadata` can read this via get_request_origin() to decide
       * whether the verification originated from a specific context (e.g., 'checkout').
       *
@@ -35,7 +35,7 @@
 
      /**
       * Returns the origin marker for the current verify-click request.
-      * Set by handle_launch() from the signed `aw_o` query param.
+      * Set by handle_launch() from the signed `agewallet_origin` query param.
       *
       * @return string|null
       */
@@ -48,14 +48,14 @@
       * @since 0.1.0
       * @var string
       */
-     const STATE_TRANSIENT_PREFIX = 'aw_oidc_state_';
+     const STATE_TRANSIENT_PREFIX = 'agewallet_oidc_state_';
 
      /**
       * Transient prefix for the success page handoff token. Used to pass the final redirect URL securely.
       * @since 0.1.0
       * @var string
       */
-     const SUCCESS_TOKEN_PREFIX = 'aw_oidc_success_';
+     const SUCCESS_TOKEN_PREFIX = 'agewallet_oidc_success_';
 
      /**
       * Ensures only one instance of the handler class is loaded.
@@ -278,7 +278,7 @@
          // Determine the URL to redirect back to after successful verification.
          // The $_GET reads in this method are OIDC-flow routing parameters (not
          // user-submitted form data); each is validated downstream — `redirect_to`
-         // via wp_validate_redirect(), `md` / `aw_o` via HMAC signature
+         // via wp_validate_redirect(), `agewallet_md` / `agewallet_origin` via HMAC signature
          // verification. Nonce checks don't apply to the OIDC redirect flow.
          // phpcs:disable WordPress.Security.NonceVerification.Recommended
          $redirect_to = home_url('/'); // Default to home
@@ -360,14 +360,14 @@
          // cleanly with that.
          //
          // Return a string (max 4096 bytes) or null/empty to skip.
-         $signed_md   = isset( $_GET['md'] ) ? sanitize_text_field( wp_unslash( $_GET['md'] ) ) : '';
+         $signed_md   = isset( $_GET['agewallet_md'] ) ? sanitize_text_field( wp_unslash( $_GET['agewallet_md'] ) ) : '';
          $base_value  = $signed_md ? AgeWallet_Helpers::instance()->verify_signed_metadata( $signed_md ) : null;
 
          // Decode the signed origin marker (if present) so filter callbacks can read
          // it via self::get_request_origin() to decide whether to attach context-specific
          // metadata (e.g., AgeWallet_WooCommerce::inject_checkout_metadata fires only
          // when this is 'checkout').
-         $signed_origin = isset( $_GET['aw_o'] ) ? sanitize_text_field( wp_unslash( $_GET['aw_o'] ) ) : '';
+         $signed_origin = isset( $_GET['agewallet_origin'] ) ? sanitize_text_field( wp_unslash( $_GET['agewallet_origin'] ) ) : '';
          $origin        = $signed_origin ? AgeWallet_Helpers::instance()->verify_signed_metadata( $signed_origin ) : '';
          self::$request_origin = ( is_string( $origin ) && '' !== $origin ) ? $origin : null;
 

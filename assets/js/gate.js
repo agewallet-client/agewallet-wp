@@ -202,6 +202,19 @@
                 } else {
                     console.error('[AgeWallet Gate] Agree button is missing redirect URL.');
                 }
+                return;
+            }
+
+            // "I Disagree" — reveal the inline error message. (Was an inline onclick handler;
+            // moved here so the gate markup carries no inline JS.)
+            var disagreeButton = event.target.closest('.aw-gate__btn--no');
+            if (disagreeButton) {
+                event.preventDefault();
+                var card = disagreeButton.closest('.aw-gate');
+                var errEl = card ? card.querySelector('.aw-gate__error') : null;
+                if (errEl) {
+                    errEl.style.display = 'block';
+                }
             }
         });
 
@@ -231,7 +244,7 @@
                         var separator = launchUrl.indexOf('?') !== -1 ? '&' : '?';
                         var finalUrl = launchUrl + separator + 'redirect_to=' + encodeURIComponent(currentUrl);
                         if (signedMetadata) {
-                            finalUrl += '&md=' + encodeURIComponent(signedMetadata);
+                            finalUrl += '&agewallet_md=' + encodeURIComponent(signedMetadata);
                         }
                         agreeBtn.setAttribute('data-redirect-url', finalUrl);
                     }

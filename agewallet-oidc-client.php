@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AgeWallet OIDC Client
  * Description: Secure AgeWallet OIDC flow for WordPress using transients and client-side gating for cache compatibility.
- * Version:     1.5.4
+ * Version:     1.5.5
  * Author:      AgeWallet LLC
  * Author URI:  https://agewallet.com
  * Text Domain: agewallet-oidc-client
@@ -31,7 +31,7 @@ add_action( 'before_woocommerce_init', function () {
 } );
 
 // Define essential plugin constants.
-define( 'AGEWALLET_VERSION', '1.5.4' );
+define( 'AGEWALLET_VERSION', '1.5.5' );
 define( 'AGEWALLET_PLUGIN_FILE', __FILE__ );
 define( 'AGEWALLET_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGEWALLET_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -73,19 +73,19 @@ final class AgeWalletOIDCClientPro {
 
 	// --- Constants (Option Keys) ---
 	// API Credentials
-	const OPT_CLIENT_ID     = 'aw_oidc_client_id';
-	const OPT_CLIENT_SECRET = 'aw_oidc_client_secret';
-	const OPT_HMAC_SECRET   = 'aw_hmac_secret'; // Needed for signing internal tokens/params
+	const OPT_CLIENT_ID     = 'agewallet_oidc_client_id';
+	const OPT_CLIENT_SECRET = 'agewallet_oidc_client_secret';
+	const OPT_HMAC_SECRET   = 'agewallet_hmac_secret'; // Needed for signing internal tokens/params
 
 	// Gate Appearance Options
-	const OPT_LOGO_ID       = 'aw_oidc_logo_id';
-	const OPT_LOGO_WIDTH_PX = 'aw_oidc_logo_width_px';
-	const OPT_COPY_WYSIWYG  = 'aw_oidc_copy_wysiwyg';
-	const OPT_HIDE_HEADING  = 'aw_oidc_hide_heading';
+	const OPT_LOGO_ID       = 'agewallet_oidc_logo_id';
+	const OPT_LOGO_WIDTH_PX = 'agewallet_oidc_logo_width_px';
+	const OPT_COPY_WYSIWYG  = 'agewallet_oidc_copy_wysiwyg';
+	const OPT_HIDE_HEADING  = 'agewallet_oidc_hide_heading';
 
 	// Content Guarding Options
-	const OPT_BLOCK_MODE    = 'aw_oidc_block_mode';
-	const OPT_BLOCKED_PATHS = 'aw_oidc_blocked_paths';
+	const OPT_BLOCK_MODE    = 'agewallet_oidc_block_mode';
+	const OPT_BLOCKED_PATHS = 'agewallet_oidc_blocked_paths';
 
 	// Metadata Options
 	const OPT_METADATA_DEFAULT      = 'agewallet_metadata_default';
@@ -105,7 +105,7 @@ final class AgeWalletOIDCClientPro {
 	 * Option key for enabling the plugin's internal debug logging.
 	 * @since 0.1.0
 	 */
-	const OPT_DEBUG_MODE = 'aw_oidc_debug_mode';
+	const OPT_DEBUG_MODE = 'agewallet_oidc_debug_mode';
 
 	// Internal Query Vars (for rewrite rules) - Ensure these match rewrite setup
 	const QV_LAUNCH   = 'agewallet_launch';
