@@ -455,21 +455,48 @@
          * @since 1.5.4
          */
         public function render_css_vars() {
-            if ( ! class_exists( 'AgeWallet_Admin' ) ) {
+            $css = $this->get_gate_css_vars();
+            if ( '' === $css ) {
                 return;
             }
+            // Emitted by the strict-mode skeleton (templates/gatekeeper.php) — a standalone HTML
+            // document rendered before wp_head()/the enqueue pipeline run, so an inline <style> is
+            // required here. Standard mode applies the SAME declaration via wp_add_inline_style() on
+            // the gate.css handle (see AgeWallet_Gating_Manager); values are esc_html'd per entry.
+            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- strict-mode skeleton renders before enqueue; see note.
+            echo '<style id="agewallet-vars">' . $css . '</style>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- per-value esc_html() in get_gate_css_vars().
+        }
+
+        /**
+         * Build the ":root{ --aw-...: ...; }" declaration from the structured Gate Appearance
+         * options. Returns '' when there is nothing to emit. Used inline by the strict-mode
+         * skeleton (render_css_vars) AND via wp_add_inline_style() on the gate.css handle in
+         * standard mode, so the colours + radii are identical across both rendering paths.
+         *
+         * Radius handling: an empty option (never set, or saved blank) is skipped so the gate.css
+         * :root default applies; a real number (including an explicit 0) is honoured.
+         *
+         * @since 1.5.5
+         * @return string
+         */
+        public function get_gate_css_vars() {
+            if ( ! class_exists( 'AgeWallet_Admin' ) ) {
+                return '';
+            }
+            $radius_card = get_option( 'agewallet_radius_card', '' );
+            $radius_btn  = get_option( 'agewallet_radius_btn',  '' );
             $vars = array(
-                '--aw-bg'             => get_option( 'agewallet_color_overlay_bg',    '#000000' ),
-                '--aw-card'           => get_option( 'agewallet_color_card_bg',       '#0d0d10' ),
-                '--aw-card-border'    => get_option( 'agewallet_color_card_border',   '#1e1e24' ),
-                '--aw-text'           => get_option( 'agewallet_color_text',          '#f5f7fb' ),
-                '--aw-muted'          => get_option( 'agewallet_color_muted',         '#c8cbd4' ),
-                '--aw-purple'         => get_option( 'agewallet_color_btn_yes_bg',    '#6a1b9a' ),
-                '--aw-purple-700'     => get_option( 'agewallet_color_btn_yes_hover', '#5a1784' ),
-                '--aw-no-btn-dark-bg' => get_option( 'agewallet_color_btn_no_bg',     '#2a2a32' ),
-                '--aw-no-btn-dark-text' => get_option( 'agewallet_color_btn_no_text', '#cdd0d7' ),
-                '--aw-radius'         => ( (int) get_option( 'agewallet_radius_card', 16 ) ) . 'px',
-                '--aw-btn-radius'     => ( (int) get_option( 'agewallet_radius_btn',  12 ) ) . 'px',
+                '--aw-bg'               => get_option( 'agewallet_color_overlay_bg',    '#000000' ),
+                '--aw-card'             => get_option( 'agewallet_color_card_bg',       '#0d0d10' ),
+                '--aw-card-border'      => get_option( 'agewallet_color_card_border',   '#1e1e24' ),
+                '--aw-text'             => get_option( 'agewallet_color_text',          '#f5f7fb' ),
+                '--aw-muted'            => get_option( 'agewallet_color_muted',         '#c8cbd4' ),
+                '--aw-purple'           => get_option( 'agewallet_color_btn_yes_bg',    '#6a1b9a' ),
+                '--aw-purple-700'       => get_option( 'agewallet_color_btn_yes_hover', '#5a1784' ),
+                '--aw-no-btn-dark-bg'   => get_option( 'agewallet_color_btn_no_bg',     '#2a2a32' ),
+                '--aw-no-btn-dark-text' => get_option( 'agewallet_color_btn_no_text',   '#cdd0d7' ),
+                '--aw-radius'           => ( '' === trim( (string) $radius_card ) ) ? '' : ( (int) $radius_card ) . 'px',
+                '--aw-btn-radius'       => ( '' === trim( (string) $radius_btn ) )  ? '' : ( (int) $radius_btn ) . 'px',
             );
 
             $lines = array();
@@ -478,16 +505,12 @@
                 if ( '' === $value ) {
                     continue;
                 }
-                $lines[] = sprintf( '%s: %s;', $property, $value );
+                $lines[] = $property . ': ' . esc_html( $value ) . ';';
             }
             if ( empty( $lines ) ) {
-                return;
+                return '';
             }
-            // Emitted only by the strict-mode skeleton (templates/gatekeeper.php) — a standalone
-            // HTML document rendered before wp_head()/the enqueue pipeline run, so an inline <style>
-            // is required. Property names are hardcoded; values are sanitized hex / "Npx".
-            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- strict-mode skeleton renders before enqueue; see note.
-            echo '<style id="agewallet-vars">:root{' . implode( '', array_map( 'esc_html', $lines ) ) . '}</style>';
+            return ':root{' . implode( '', $lines ) . '}';
         }
 
         /**

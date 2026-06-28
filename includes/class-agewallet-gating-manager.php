@@ -250,6 +250,16 @@ class AgeWallet_Gating_Manager {
 			wp_enqueue_style( self::STYLE_HANDLE );
 			wp_enqueue_script( self::SCRIPT_HANDLE );
 
+			// Apply the admin Gate Appearance colours + radii in standard mode too. The strict
+			// skeleton emits the same vars inline via render_css_vars(); attaching them to the
+			// gate.css handle keeps the overlay and shortcode placeholder consistent with it.
+			if ( class_exists( 'AgeWallet_Helpers' ) ) {
+				$css_vars = AgeWallet_Helpers::instance()->get_gate_css_vars();
+				if ( '' !== $css_vars ) {
+					wp_add_inline_style( self::STYLE_HANDLE, $css_vars );
+				}
+			}
+
 			$script_data = array(
 				'cookieName'       => self::VERIFIED_COOKIE_NAME,
 				'bodyClassPending' => 'agewallet-gated-pending',
@@ -257,17 +267,30 @@ class AgeWallet_Gating_Manager {
 				'isOverlayActive'  => false,
 			);
 
-			// Since should_restrict_content() is true, we need the gate.
-			// Note: In Strict Mode, this enqueuing might be redundant if intercept_template_loading
-			// swapped the template, but it's harmless.
-			$script_data['gateHtml']        = $this->get_gate_html();
-			$script_data['isOverlayActive'] = true;
-			$this->log_debug( 'Localizing script data including overlay HTML.' );
+			// The page needs the gate assets, but only show the WHOLE-PAGE OVERLAY when the page is
+			// auto-gated (block mode / path / taxonomy / WooCommerce). A page that qualifies ONLY
+			// because it contains the [agewallet_protected] shortcode must render that shortcode's
+			// INLINE placeholder, not an overlay — so re-check while ignoring shortcode presence.
+			$is_auto_gated = $this->should_restrict_content( null, false );
 
-			// Signal to add body class. Double-underscore prefix marks this as an internal,
-			// not-publicly-documented hook; plugin-check's regex misses the prefix, so annotate.
-			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
-			add_filter( '__agewallet_is_gating_this_request', '__return_true' );
+			if ( $is_auto_gated ) {
+				// Note: In Strict Mode this enqueuing might be redundant if intercept_template_loading
+				// swapped the template, but it's harmless.
+				$script_data['gateHtml']        = $this->get_gate_html();
+				$script_data['isOverlayActive'] = true;
+				$this->log_debug( 'Localizing script data including overlay HTML (auto-gated).' );
+
+				// Signal to add the body hiding class (whole page hidden until JS runs). Only for the
+				// overlay; a shortcode-only page must NOT hide the whole body. Double-underscore prefix
+				// marks this as an internal, not-publicly-documented hook; plugin-check's regex misses
+				// the prefix, so annotate.
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+				add_filter( '__agewallet_is_gating_this_request', '__return_true' );
+			} else {
+				// Shortcode-only page: gate.js loads, but isOverlayActive stays false and no body
+				// class is added — handleProtectedBlocks() toggles the inline placeholder in place.
+				$this->log_debug( 'Localizing script data for shortcode-only page (inline placeholder, no overlay).' );
+			}
 
 			// HOOK: Allow developers to add or modify data passed to the front-end script.
 			$script_data = apply_filters( 'agewallet_gate_script_data', $script_data );
@@ -285,10 +308,15 @@ class AgeWallet_Gating_Manager {
 	 * Checks Context, Meta, Global Settings, and Shortcodes.
 	 *
 	 * @since 1.1.0 Updated to accept optional Post ID for API checks.
-	 * @param int|null $context_post_id Optional. The post ID to check (for API requests).
+	 * @param int|null $context_post_id   Optional. The post ID to check (for API requests).
+	 * @param bool     $include_shortcode Optional. When false, the [agewallet_protected] shortcode's
+	 *                                    presence does NOT count toward gating. The asset-enqueue
+	 *                                    decision passes true (a shortcode needs the gate assets); the
+	 *                                    whole-page-overlay decision passes false (a shortcode renders
+	 *                                    its own inline placeholder, never an overlay). Default true.
 	 * @return bool True if content should be restricted.
 	 */
-	public function should_restrict_content( $context_post_id = null ) {
+	public function should_restrict_content( $context_post_id = null, $include_shortcode = true ) {
 		// 1. Context Checks.
 		// If we are running an API check ($context_post_id is set), we skip the context check (admin/cli)
 		// because the API itself is a REST request, which is normally excluded.
@@ -497,16 +525,16 @@ class AgeWallet_Gating_Manager {
 		}
 
 		// 5. Check Shortcode Presence.
-		// We skip this check in Strict Mode because shortcodes do not trigger gating in that mode.
-		if ( 'strict' === get_option( 'agewallet_protection_mode', 'standard' ) ) {
-			return apply_filters( 'agewallet_should_gate_request', false, $post_id );
-		}
-
-		// Normal mode check for shortcode.
-		if ( $post_id ) {
+		// A shortcode on the page means the gate ASSETS must load, but it must NOT trigger the
+		// whole-page overlay — the shortcode renders its own inline placeholder. So this counts
+		// only toward the asset-enqueue decision ( $include_shortcode = true ); the overlay
+		// decision passes false. Shortcodes never gate in Strict Mode.
+		if ( $include_shortcode
+			&& 'strict' !== get_option( 'agewallet_protection_mode', 'standard' )
+			&& $post_id ) {
 			$post_obj = get_post( $post_id );
 			if ( isset( $post_obj ) && has_shortcode( $post_obj->post_content, 'agewallet_protected' ) ) {
-				$this->log_debug( 'Rule Check: Shortcode found.' );
+				$this->log_debug( 'Rule Check: Shortcode found (asset enqueue only).' );
 				return true;
 			}
 		}
@@ -635,6 +663,14 @@ class AgeWallet_Gating_Manager {
 			// Now enqueue them.
 			wp_enqueue_style( self::STYLE_HANDLE );
 			wp_enqueue_script( self::SCRIPT_HANDLE );
+
+			// Apply the admin Gate Appearance colours + radii (same vars as the strict skeleton).
+			if ( class_exists( 'AgeWallet_Helpers' ) ) {
+				$css_vars = AgeWallet_Helpers::instance()->get_gate_css_vars();
+				if ( '' !== $css_vars ) {
+					wp_add_inline_style( self::STYLE_HANDLE, $css_vars );
+				}
+			}
 
 			// Check if data has been added (by this function or another).
 			if ( ! wp_script_is( self::SCRIPT_HANDLE, 'data' ) ) {

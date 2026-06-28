@@ -998,6 +998,11 @@ class AgeWallet_Admin {
 	}
 
 	public function sanitize_radius( $input ) {
+		// A blank field means "use the default radius" (let gate.css :root apply), NOT 0. Storing
+		// '' keeps "unset" distinct from an explicit 0 (squared corners). A real value is clamped.
+		if ( '' === trim( (string) $input ) ) {
+			return '';
+		}
 		return min( 32, max( 0, absint( $input ) ) );
 	}
 

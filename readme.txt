@@ -343,9 +343,6 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 
 = Admin Settings (class-agewallet-admin.php) =
 * `agewallet_admin_menu_capability` (filter) - Change the user capability required to access the settings page.
-* `agewallet_register_settings` (action) - Add custom settings sections and fields to the admin page.
-* `agewallet_before_settings_fields` (action) - Add custom content before the main settings form fields.
-* `agewallet_after_settings_fields` (action) - Add custom content after the main settings form fields.
 
 = Helpers (class-agewallet-helpers.php) =
 * `agewallet_hmac_secret` (filter) - Override the HMAC secret retrieved from the database.
@@ -438,6 +435,9 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 * Quality: Prefixed all remaining internal identifiers with the full `agewallet_` prefix — option keys, transient keys, ad-hoc URL query parameters, and admin settings-section IDs. No public release used the previous short keys, so no migration is required; existing demo installs simply re-enter settings once.
 * Quality: Removed the last inline admin `<script>` (the metadata-source toggle now loads via `wp_add_inline_script`) and the inline button `onclick` (now a delegated handler in `gate.js`). Remaining inline output (the Strict-mode skeleton and the vendor analytics snippets) is documented in-code as intentional, since it runs before the WordPress enqueue pipeline exists.
 * Quality: Wrapped the `[agewallet_protected]` shortcode's wrapper markup in `esc_attr()`.
+* Fix: The `[agewallet_protected]` shortcode no longer triggers the full-page overlay on otherwise-ungated pages — it renders its inline placeholder only.
+* Fix: Gate Appearance colours and border-radii now apply consistently in both Standard and Strict modes; a blank radius field uses the rounded default instead of squared corners.
+* Docs: Removed three readme references to action hooks the plugin does not actually fire.
 
 = 1.5.4 =
 * Structured Gate Appearance form: dedicated colour pickers (overlay backdrop, card background and border, body and disclaimer text, Agree / Disagree buttons) and card / button border-radius inputs replace the previous free-text "Custom CSS" field. Defaults match the previous look; saving without changes produces no visual diff.
