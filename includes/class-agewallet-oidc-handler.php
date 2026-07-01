@@ -795,6 +795,38 @@
          // HOOK: Allow developers to completely override the default success page.
          do_action('agewallet_before_render_success_page', $redirect_to);
 
+         // Register + enqueue the success page's CSS + JS through the standard pipeline,
+         // then emit them below via wp_print_styles() / wp_print_footer_scripts(). No raw
+         // <script>/<style> tags in the bespoke handoff HTML.
+         $success_css_path = 'assets/css/oidc-success.css';
+         $success_js_path  = 'assets/js/oidc-success.js';
+         $success_css_ver  = AGEWALLET_VERSION;
+         $success_js_ver   = AGEWALLET_VERSION;
+         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+             $css_file = AGEWALLET_PLUGIN_DIR . $success_css_path;
+             $js_file  = AGEWALLET_PLUGIN_DIR . $success_js_path;
+             if ( file_exists( $css_file ) ) {
+                 $success_css_ver = filemtime( $css_file ) ?: $success_css_ver;
+             }
+             if ( file_exists( $js_file ) ) {
+                 $success_js_ver = filemtime( $js_file ) ?: $success_js_ver;
+             }
+         }
+         wp_register_style( 'agewallet-oidc-success', AGEWALLET_PLUGIN_URL . $success_css_path, array(), $success_css_ver, 'all' );
+         wp_enqueue_style( 'agewallet-oidc-success' );
+         wp_register_script( 'agewallet-oidc-success', AGEWALLET_PLUGIN_URL . $success_js_path, array(), $success_js_ver, true );
+         wp_localize_script(
+             'agewallet-oidc-success',
+             'agewalletOidcSuccess',
+             array(
+                 'cookieName'       => $cookie_name,
+                 'cookieValue'      => $cookie_value,
+                 'cookieAttributes' => $cookie_attributes_string,
+                 'redirectTo'       => $redirect_to,
+             )
+         );
+         wp_enqueue_script( 'agewallet-oidc-success' );
+
          ?>
          <!doctype html>
          <html <?php language_attributes(); ?>>
@@ -804,15 +836,11 @@
              <meta name="viewport" content="width=device-width, initial-scale=1">
              <meta name="robots" content="noindex, nofollow">
              <meta http-equiv="refresh" content="2;url=<?php echo esc_url($redirect_to); ?>">
-             <style>
-                 body{font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif; margin:0; padding: 2em; text-align: center; color: #444; background-color:#f0f0f1; display: flex; justify-content: center; align-items: center; min-height: 100vh;}
-                 .container{max-width: 400px; padding: 2em; background: #fff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
-                 p{margin: 1em 0 1.5em; font-size: 1.1em; line-height: 1.5;}
-                 a{color: #0073aa; text-decoration: none;} a:hover{text-decoration: underline;}
-                 .spinner{display: inline-block; box-sizing: border-box; width: 24px; height: 24px; border: 4px solid rgba(0,115,170,.2); border-radius: 50%; border-top-color: #0073aa; animation: spin 1s ease-in-out infinite; -webkit-animation: spin 1s ease-in-out infinite; margin-left: 10px; vertical-align: middle;}
-                 @keyframes spin{to{transform:rotate(360deg)}} @-webkit-keyframes spin{to{-webkit-transform:rotate(360deg)}}
-                 noscript strong { color: #d63638; }
-             </style>
+             <?php
+             // Emit the enqueued stylesheet without firing wp_head() — avoids third-party
+             // plugin/theme injection on the bespoke handoff page.
+             wp_print_styles();
+             ?>
          </head>
          <body>
              <div class="container">
@@ -821,29 +849,10 @@
                  <noscript><p><strong><?php esc_html_e('JavaScript is required for the final redirection step.', 'agewallet-oidc-client'); ?></strong></p></noscript>
              </div>
 
-             <script type="text/javascript">
-                 (function(){
-                     try {
-                         var cookieName = <?php echo wp_json_encode($cookie_name); ?>;
-                         var cookieValue = <?php echo wp_json_encode($cookie_value); ?>;
-                         var cookieAttributes = <?php echo wp_json_encode($cookie_attributes_string); ?>;;
-                         var cookieString = cookieName + '=' + encodeURIComponent(cookieValue) + cookieAttributes;
-
-                         document.cookie = cookieString;
-                         console.log('[AgeWallet] Set session cookie: ' + cookieString);
-
-                         var redirectTo = <?php echo wp_json_encode($redirect_to); ?>;
-                         console.log('[AgeWallet] Redirecting (replace) to: ' + redirectTo);
-                         window.location.replace(redirectTo);
-
-                     } catch (e) {
-                         console.error("[AgeWallet] Error during success page script execution.", e);
-                         var fallbackRedirect = <?php echo wp_json_encode($redirect_to); ?>;
-                         console.log('[AgeWallet] Fallback redirect (href) to: ' + fallbackRedirect);
-                         window.location.href = fallbackRedirect;
-                     }
-                 })();
-             </script>
+             <?php
+             // Emit the enqueued JS + its localized `agewalletOidcSuccess` config block.
+             wp_print_footer_scripts();
+             ?>
          </body>
          </html>
          <?php

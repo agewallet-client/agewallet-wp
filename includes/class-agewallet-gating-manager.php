@@ -97,6 +97,7 @@ class AgeWallet_Gating_Manager {
 		// Meta Box Hooks (Admin-side)
 		add_action( 'add_meta_boxes', array( $this, 'add_restriction_meta_box' ) );
 		add_action( 'save_post', array( $this, 'save_restriction_meta_box' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_post_restriction_script' ) );
 
 		$this->log_debug( '[Gating Manager] __construct finished, hooks added.' );
 	}
@@ -128,7 +129,139 @@ class AgeWallet_Gating_Manager {
 		}
 		wp_register_script( self::SCRIPT_HANDLE, AGEWALLET_PLUGIN_URL . $script_path, array( 'jquery' ), $script_ver, true );
 
+		// Skeleton-only CSS used by the strict-mode gatekeeper page (spinner, background).
+		$skeleton_path = 'assets/css/gate-skeleton.css';
+		$skeleton_ver  = AGEWALLET_VERSION;
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			$file_path = AGEWALLET_PLUGIN_DIR . $skeleton_path;
+			if ( file_exists( $file_path ) ) {
+				$skeleton_ver = filemtime( $file_path ) ?: $skeleton_ver;
+			}
+		}
+		wp_register_style( 'agewallet-gate-skeleton', AGEWALLET_PLUGIN_URL . $skeleton_path, array( self::STYLE_HANDLE ), $skeleton_ver, 'all' );
+
 		$this->log_debug( '[Gating Manager] Assets registered.' );
+	}
+
+	/**
+	 * Enqueue + configure every asset needed by the strict-mode gatekeeper skeleton
+	 * (templates/gatekeeper.php). Called from the template right before it emits the
+	 * `<head>` and body scripts via wp_print_styles() / wp_print_scripts(). All admin-
+	 * chosen values (CSS vars, Customizer CSS, analytics IDs, gate config) reach the
+	 * browser via wp_add_inline_style / wp_add_inline_script / wp_localize_script so
+	 * the template itself contains no raw `<script>` or `<style>` tags.
+	 *
+	 * @since 1.5.6
+	 * @param array $script_data Per-request gate config passed to gate.js as `agewallet_gate_data`.
+	 */
+	public function enqueue_gatekeeper_assets( array $script_data ) {
+		if ( ! wp_style_is( self::STYLE_HANDLE, 'registered' ) || ! wp_script_is( self::SCRIPT_HANDLE, 'registered' ) ) {
+			$this->register_assets();
+		}
+
+		wp_enqueue_style( self::STYLE_HANDLE );
+		wp_enqueue_style( 'agewallet-gate-skeleton' );
+
+		if ( class_exists( 'AgeWallet_Helpers' ) ) {
+			$css_vars = AgeWallet_Helpers::instance()->get_gate_css_vars();
+			if ( '' !== $css_vars ) {
+				wp_add_inline_style( self::STYLE_HANDLE, $css_vars );
+			}
+		}
+
+		// Customizer's "Additional CSS" — strict mode short-circuits wp_head(), so we
+		// attach it explicitly to the gate stylesheet handle.
+		$customizer_css = wp_get_custom_css();
+		if ( ! empty( $customizer_css ) ) {
+			wp_add_inline_style( self::STYLE_HANDLE, wp_strip_all_tags( $customizer_css ) );
+		}
+
+		wp_enqueue_script( self::SCRIPT_HANDLE );
+		wp_localize_script( self::SCRIPT_HANDLE, 'agewallet_gate_data', $script_data );
+
+		if ( class_exists( 'AgeWallet_Helpers' ) ) {
+			$ids = AgeWallet_Helpers::instance()->get_analytics_ids();
+			$this->register_gatekeeper_analytics( $ids );
+		}
+	}
+
+	/**
+	 * Register GA4 / GTM / Facebook-Pixel scripts on their own handles. GA4 has a real
+	 * vendor URL (gtag/js) + a small `gtag('config', …)` inline block; GTM and FB Pixel
+	 * are pure inline loaders so they register with empty src and `wp_add_inline_script`.
+	 *
+	 * @since 1.5.6
+	 * @param array{ga4:string,gtm:string,pixel:string} $ids Regex-validated vendor IDs.
+	 */
+	private function register_gatekeeper_analytics( array $ids ) {
+		if ( '' !== $ids['ga4'] ) {
+			$ga4_url = 'https://www.googletagmanager.com/gtag/js?id=' . rawurlencode( $ids['ga4'] );
+			wp_register_script( 'agewallet-ga4', $ga4_url, array(), null, false ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- Vendor script; version must not be appended.
+			wp_enqueue_script( 'agewallet-ga4' );
+			$inline_ga4 = 'window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config",' . wp_json_encode( $ids['ga4'] ) . ');';
+			wp_add_inline_script( 'agewallet-ga4', $inline_ga4 );
+		}
+
+		if ( '' !== $ids['gtm'] ) {
+			wp_register_script( 'agewallet-gtm', '', array(), AGEWALLET_VERSION, false );
+			wp_enqueue_script( 'agewallet-gtm' );
+			$gtm_id     = wp_json_encode( $ids['gtm'] );
+			$inline_gtm = '(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({"gtm.start":new Date().getTime(),event:"gtm.js"});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f);})(window,document,"script","dataLayer",' . $gtm_id . ');';
+			wp_add_inline_script( 'agewallet-gtm', $inline_gtm );
+		}
+
+		if ( '' !== $ids['pixel'] ) {
+			wp_register_script( 'agewallet-fb-pixel', '', array(), AGEWALLET_VERSION, false );
+			wp_enqueue_script( 'agewallet-fb-pixel' );
+			$pixel_id     = wp_json_encode( $ids['pixel'] );
+			$inline_pixel = '!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");fbq("init",' . $pixel_id . ');fbq("track","PageView");';
+			wp_add_inline_script( 'agewallet-fb-pixel', $inline_pixel );
+		}
+	}
+
+	/**
+	 * Returns the strict-mode analytics `<noscript>` fallback markup (GTM iframe + FB
+	 * Pixel tracking image). These aren't `<script>` tags so they live in the gatekeeper
+	 * body markup rather than the enqueue pipeline. Escaped via esc_url().
+	 *
+	 * @since 1.5.6
+	 * @return string Empty when no analytics IDs are configured.
+	 */
+	public function get_gatekeeper_analytics_noscript() {
+		if ( ! class_exists( 'AgeWallet_Helpers' ) ) {
+			return '';
+		}
+		$ids  = AgeWallet_Helpers::instance()->get_analytics_ids();
+		$html = '';
+		if ( '' !== $ids['gtm'] ) {
+			$html .= '<noscript><iframe src="' . esc_url( 'https://www.googletagmanager.com/ns.html?id=' . $ids['gtm'] ) . '" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>';
+		}
+		if ( '' !== $ids['pixel'] ) {
+			$html .= '<noscript><img height="1" width="1" style="display:none" src="' . esc_url( 'https://www.facebook.com/tr?id=' . $ids['pixel'] . '&ev=PageView&noscript=1' ) . '" alt="" /></noscript>';
+		}
+		return $html;
+	}
+
+	/**
+	 * Enqueue the Age Restriction meta-box helper JS on post-edit screens. Handles the
+	 * mutual-exclusion toggle between the "Force" and "Exclude" checkboxes.
+	 *
+	 * @since 1.5.6
+	 * @param string $hook Current admin page slug.
+	 */
+	public function enqueue_post_restriction_script( $hook ) {
+		if ( 'post.php' !== $hook && 'post-new.php' !== $hook ) {
+			return;
+		}
+		$path = 'assets/js/post-restriction.js';
+		$ver  = AGEWALLET_VERSION;
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			$file_path = AGEWALLET_PLUGIN_DIR . $path;
+			if ( file_exists( $file_path ) ) {
+				$ver = filemtime( $file_path ) ?: $ver;
+			}
+		}
+		wp_enqueue_script( 'agewallet-post-restriction', AGEWALLET_PLUGIN_URL . $path, array(), $ver, true );
 	}
 
 /**
@@ -602,18 +735,18 @@ class AgeWallet_Gating_Manager {
 		// 1. Loopback Bypass (Fix for Strict Mode Cache Build).
 		if ( defined( 'AGEWALLET_CACHE_BUILDING' ) && AGEWALLET_CACHE_BUILDING ) {
 			$this->log_debug( '[Gating Manager] Shortcode bypassed for Cache Build.' );
-			return do_shortcode( $content );
+			return wp_kses_post( do_shortcode( $content ) );
 		}
 
 		// 2. Strict Mode Bypass (Disable shortcode protection logic).
 		if ( 'strict' === get_option( 'agewallet_protection_mode', 'standard' ) ) {
-			return do_shortcode( $content );
+			return wp_kses_post( do_shortcode( $content ) );
 		}
 
 		// 3. Standard Checks.
 		if ( is_user_logged_in() && current_user_can( 'edit_others_posts' ) ) {
 			$this->log_debug( '[Gating Manager] Protected shortcode skipped: User is Admin or Editor.' );
-			return do_shortcode( $content );
+			return wp_kses_post( do_shortcode( $content ) );
 		}
 
 		// Check for Signed Cookie using AgeWallet_Helpers
@@ -694,7 +827,11 @@ class AgeWallet_Gating_Manager {
 			$this->assets_enqueued = true;
 		}
 
-		$processed_content = do_shortcode( $content );
+		// wp_kses_post() applies the same allowed-HTML filter as the post-content editor,
+		// which is the WordPress-approved way to escape do_shortcode() output before it's
+		// concatenated into new markup. Safe for legitimate post HTML (images, headings,
+		// nested shortcodes' rendered output); strips anything not on the post-content allowlist.
+		$processed_content = wp_kses_post( do_shortcode( $content ) );
 		$placeholder_html  = $this->get_gate_html();
 		if ( empty( $placeholder_html ) ) {
 			$placeholder_html = '<p style="color:red;">Error: Could not generate verification prompt.</p>';
@@ -714,12 +851,7 @@ class AgeWallet_Gating_Manager {
 		$output .= '</div>';
 		$output .= '</div>';
 
-		// $output's dynamic parts are all pre-escaped: the wrapper <div> class attributes via
-		// esc_attr() above; $placeholder_html inside get_gate_html() (esc_url/esc_attr/esc_html/
-		// wp_kses_post); and $processed_content is the author's inner content already run through
-		// WordPress's own shortcode/HTML pipeline (do_shortcode) — re-escaping it would corrupt
-		// legitimate markup.
-		return $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- all dynamic parts pre-escaped; see note above.
+		return $output;
 	}
 
 	/**
@@ -908,17 +1040,9 @@ class AgeWallet_Gating_Manager {
 			<small><?php esc_html_e( "(Overrides ALL Global settings)", 'agewallet-oidc-client' ); ?></small>
 		</p>
 		<p><small><?php esc_html_e( 'Note: If "Exclude" is checked, "Require" will be ignored.', 'agewallet-oidc-client' ); ?></small></p>
-		<script type="text/javascript">
-			document.addEventListener('DOMContentLoaded', function() {
-				var restrictCheckbox = document.getElementById('agewallet_force_restrict');
-				var excludeCheckbox = document.getElementById('agewallet_force_exclude');
-				if (!restrictCheckbox || !excludeCheckbox) return;
-				function toggleRestrict() { restrictCheckbox.disabled = excludeCheckbox.checked; if (excludeCheckbox.checked) restrictCheckbox.checked = false; }
-				excludeCheckbox.addEventListener('change', toggleRestrict);
-				toggleRestrict();
-			});
-		</script>
 		<?php
+		// Mutual-exclusion toggle behaviour is enqueued via enqueue_post_restriction_script()
+		// (assets/js/post-restriction.js) on post.php / post-new.php.
 	}
 
 	/**

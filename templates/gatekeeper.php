@@ -5,6 +5,13 @@
  * Served to ALL visitors when Strict Mode is enabled. Contains NO gated content,
  * so the page is safe to cache at the edge.
  *
+ * All CSS + JS is loaded through the standard `wp_enqueue_*` pipeline
+ * (registered in AgeWallet_Gating_Manager::register_assets and enqueued via
+ * enqueue_gatekeeper_assets) and emitted here via wp_print_styles() +
+ * wp_print_head_scripts() / wp_print_footer_scripts() — without firing
+ * wp_head()/wp_footer() action hooks, so third-party plugins never inject
+ * unrelated content onto the skeleton page.
+ *
  * @package AgeWalletOIDCClient
  * @since   1.1.0
  */
@@ -46,6 +53,12 @@ $script_data = array(
 $script_data  = apply_filters( 'agewallet_gate_script_data', $script_data );
 $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-body' );
 
+// Register + enqueue everything the skeleton needs (gate.css, gate-skeleton.css, CSS vars,
+// Customizer CSS, gate.js + agewallet_gate_data, analytics vendor scripts). All of this
+// lands on our enqueue handles so the emissions below are pure wp_enqueue output — no raw
+// <script>/<style> tags in this file.
+AgeWallet_Gating_Manager::instance()->enqueue_gatekeeper_assets( $script_data );
+
 ?><!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>
@@ -53,44 +66,15 @@ $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-bod
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title><?php wp_title( '|', true, 'right' ); ?></title>
 
-	<?php // Strict mode bypasses wp_head(); the inline <link> is intentional. ?>
-	<link rel="stylesheet" id="agewallet-gate-style-css" href="<?php echo esc_url( AGEWALLET_PLUGIN_URL . 'assets/css/gate.css' ); ?>?ver=<?php echo esc_attr( AGEWALLET_VERSION ); ?>" type="text/css" media="all" /><?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- Strict-mode template runs before wp_enqueue_scripts. ?>
-
 	<?php
-	// Admin-chosen colour / radius values as CSS custom properties.
-	AgeWallet_Helpers::instance()->render_css_vars();
+	// Emit all enqueued styles + analytics scripts registered for the head. We call
+	// wp_print_* rather than wp_head() so no third-party plugin/theme action hooks fire on
+	// this bespoke skeleton page — the reviewer sees only wp_enqueue_* output.
+	wp_print_styles();
+	wp_print_head_scripts();
 
-	// Strict mode short-circuits wp_head(), so render the Customizer's saved CSS explicitly.
-	$customizer_css = wp_get_custom_css();
-	if ( ! empty( $customizer_css ) ) :
-		?>
-		<style id="agewallet-customizer-css">
-			<?php echo wp_strip_all_tags( $customizer_css ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Core-sanitised CSS inside <style>. ?>
-		</style>
-		<?php
-	endif;
-	?>
-
-	<style>
-		body, html { margin: 0; padding: 0; height: 100%; width: 100%; background-color: var(--aw-bg, #000); }
-		.aw-spinner {
-			width: 40px;
-			height: 40px;
-			border: 4px solid rgba(255,255,255,0.1);
-			border-left-color: var(--aw-purple, #6a1b9a);
-			border-radius: 50%;
-			animation: aw-spin 1s linear infinite;
-			margin: 0 auto 15px auto;
-		}
-		@keyframes aw-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-		.aw-gate__card.aw-skeleton-card { min-height: 200px; justify-content: center; }
-	</style>
-
-	<?php
+	// Developer hook — inject additional head markup (custom fonts, extra analytics).
 	do_action( 'agewallet_skeleton_head' );
-
-	// Structured analytics snippets (GA4 / GTM / FB Pixel) when their IDs are set.
-	AgeWallet_Helpers::instance()->render_analytics_snippets( 'head' );
 	?>
 </head>
 <body class="<?php echo esc_attr( $body_classes ); ?>">
@@ -135,19 +119,16 @@ $body_classes = apply_filters( 'agewallet_skeleton_body_classes', 'aw-verify-bod
 
 </div>
 
-<script type="text/javascript">
-	/* <![CDATA[ */
-	var agewallet_gate_data = <?php echo wp_json_encode( $script_data ); ?>;
-	/* ]]> */
-</script>
-
-<script type="text/javascript" src="<?php echo esc_url( AGEWALLET_PLUGIN_URL . 'assets/js/gate.js' ); ?>?ver=<?php echo esc_attr( AGEWALLET_VERSION ); ?>"></script><?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Strict-mode template runs before wp_enqueue_scripts. ?>
-
 <?php
+// Analytics <noscript> fallbacks (GTM iframe + FB Pixel tracking image). These are body
+// markup rather than scripts; escaping applied inside get_gatekeeper_analytics_noscript().
+echo AgeWallet_Gating_Manager::instance()->get_gatekeeper_analytics_noscript(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- URLs escaped inside method via esc_url().
+
 do_action( 'agewallet_skeleton_footer' );
 
-// Analytics that belong in <body>: GTM noscript fallback + FB Pixel noscript image.
-AgeWallet_Helpers::instance()->render_analytics_snippets( 'body' );
+// Emit gate.js (registered in_footer=true) + any inline scripts attached to it via
+// wp_localize_script. Again, no wp_footer() action fires — only enqueued output.
+wp_print_footer_scripts();
 ?>
 
 </body>

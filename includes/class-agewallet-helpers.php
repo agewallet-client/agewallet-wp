@@ -448,30 +448,11 @@
 
 
         /**
-         * Render `<style id="agewallet-vars">:root{--aw-...}</style>` from the structured
-         * appearance options. Each value is plugin-controlled; admins only choose hex strings
-         * (validated by sanitize_hex_color) and integers (clamped 0-32), never raw CSS.
-         *
-         * @since 1.5.4
-         */
-        public function render_css_vars() {
-            $css = $this->get_gate_css_vars();
-            if ( '' === $css ) {
-                return;
-            }
-            // Emitted by the strict-mode skeleton (templates/gatekeeper.php) — a standalone HTML
-            // document rendered before wp_head()/the enqueue pipeline run, so an inline <style> is
-            // required here. Standard mode applies the SAME declaration via wp_add_inline_style() on
-            // the gate.css handle (see AgeWallet_Gating_Manager); values are esc_html'd per entry.
-            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- strict-mode skeleton renders before enqueue; see note.
-            echo '<style id="agewallet-vars">' . $css . '</style>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- per-value esc_html() in get_gate_css_vars().
-        }
-
-        /**
          * Build the ":root{ --aw-...: ...; }" declaration from the structured Gate Appearance
-         * options. Returns '' when there is nothing to emit. Used inline by the strict-mode
-         * skeleton (render_css_vars) AND via wp_add_inline_style() on the gate.css handle in
-         * standard mode, so the colours + radii are identical across both rendering paths.
+         * options. Returns '' when there is nothing to emit. Attached to the gate stylesheet
+         * handle via wp_add_inline_style() in AgeWallet_Gating_Manager for both the
+         * standard-mode and strict-mode rendering paths, so the colours + radii are identical
+         * across both.
          *
          * Radius handling: an empty option (never set, or saved blank) is skipped so the gate.css
          * :root default applies; a real number (including an explicit 0) is honoured.
@@ -514,62 +495,35 @@
         }
 
         /**
-         * Render the canonical GA4 / GTM / Facebook-Pixel snippets when their structured IDs
-         * are set. We never echo admin code — only the IDs are admin-supplied, and they're
-         * regex-validated at save time. The snippet bodies are plugin-controlled string
-         * templates.
+         * Returns the structured GA4 / GTM / Facebook-Pixel IDs the admin has saved (if any),
+         * regex-validated. Consumed by AgeWallet_Gating_Manager::enqueue_gatekeeper_analytics()
+         * to register + enqueue the vendor snippets via the standard WordPress asset pipeline
+         * on the strict-mode gatekeeper page.
          *
-         * @param string $placement 'head' or 'body'.
-         * @since 1.5.4
+         * @since 1.5.6
+         * @return array{ga4:string,gtm:string,pixel:string}
          */
-        public function render_analytics_snippets( $placement = 'head' ) {
-            // phpcs:disable WordPress.WP.EnqueuedResources.NonEnqueuedScript -- These are the vendors'
-            // canonical GA4 / GTM / Facebook-Pixel snippets, emitted only on the strict-mode skeleton
-            // page (which renders before the wp_enqueue pipeline exists); they must be inline.
+        public function get_analytics_ids() {
             $ga4   = (string) get_option( 'agewallet_ga4_id',      '' );
             $gtm   = (string) get_option( 'agewallet_gtm_id',      '' );
             $pixel = (string) get_option( 'agewallet_fb_pixel_id', '' );
+            return array(
+                'ga4'   => preg_match( '/^G-[A-Z0-9]{4,}$/',  $ga4 )   ? $ga4   : '',
+                'gtm'   => preg_match( '/^GTM-[A-Z0-9]{4,}$/', $gtm )   ? $gtm   : '',
+                'pixel' => preg_match( '/^\d{6,}$/',           $pixel ) ? $pixel : '',
+            );
+        }
 
-            if ( 'head' === $placement ) {
-                if ( '' !== $ga4 && preg_match( '/^G-[A-Z0-9]{4,}$/', $ga4 ) ) {
-                    $id = esc_js( $ga4 );
-                    printf(
-                        '<script async src="https://www.googletagmanager.com/gtag/js?id=%1$s"></script>'
-                        . '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","%1$s");</script>',
-                        $id // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above; surrounding template plugin-controlled.
-                    );
-                }
-                if ( '' !== $gtm && preg_match( '/^GTM-[A-Z0-9]{4,}$/', $gtm ) ) {
-                    $id = esc_js( $gtm );
-                    printf(
-                        '<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({"gtm.start":new Date().getTime(),event:"gtm.js"});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f);})(window,document,"script","dataLayer","%s");</script>',
-                        $id // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above.
-                    );
-                }
-                if ( '' !== $pixel && preg_match( '/^\d{6,}$/', $pixel ) ) {
-                    $id = esc_js( $pixel );
-                    printf(
-                        '<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");fbq("init","%1$s");fbq("track","PageView");</script>',
-                        $id // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above.
-                    );
-                }
-                return;
-            }
-
-            // Body placement: GTM <noscript> iframe + Pixel <noscript> tracking image.
-            if ( '' !== $gtm && preg_match( '/^GTM-[A-Z0-9]{4,}$/', $gtm ) ) {
-                printf(
-                    '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>',
-                    esc_attr( $gtm )
-                );
-            }
-            if ( '' !== $pixel && preg_match( '/^\d{6,}$/', $pixel ) ) {
-                printf(
-                    '<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=%s&ev=PageView&noscript=1" alt="" /></noscript>',
-                    esc_attr( $pixel )
-                );
-            }
-            // phpcs:enable WordPress.WP.EnqueuedResources.NonEnqueuedScript
+        /**
+         * @deprecated 1.5.6 Retained as a shim so external code that hooked into
+         *             agewallet_skeleton_head and manually called this method doesn't fatally
+         *             error. Emits nothing — the gatekeeper now enqueues analytics via
+         *             AgeWallet_Gating_Manager::enqueue_gatekeeper_analytics().
+         *
+         * @param string $placement 'head' or 'body'. Ignored.
+         */
+        public function render_analytics_snippets( $placement = 'head' ) {
+            unset( $placement );
         }
 
 

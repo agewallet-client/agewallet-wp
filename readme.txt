@@ -4,7 +4,7 @@ Tags: age verification, age gate, agewallet, content restriction, oidc
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.5
+Stable tag: 1.5.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -430,11 +430,13 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 
 == Changelog ==
 
+= 1.5.6 =
+* Security: Improved script and style handling on the age-gate loading screen and post-verification handoff page.
+* Security: Hardened content escaping in the `[agewallet_protected]` shortcode.
+
 = 1.5.5 =
-* Compliance: Added an "External services" section to the readme documenting the AgeWallet verification service and the optional Strict-mode analytics integrations (Google Analytics 4 / Google Tag Manager / Facebook Pixel), each with the provider's Terms and Privacy links.
-* Quality: Prefixed all remaining internal identifiers with the full `agewallet_` prefix — option keys, transient keys, ad-hoc URL query parameters, and admin settings-section IDs. No public release used the previous short keys, so no migration is required; existing demo installs simply re-enter settings once.
-* Quality: Removed the last inline admin `<script>` (the metadata-source toggle now loads via `wp_add_inline_script`) and the inline button `onclick` (now a delegated handler in `gate.js`). Remaining inline output (the Strict-mode skeleton and the vendor analytics snippets) is documented in-code as intentional, since it runs before the WordPress enqueue pipeline exists.
-* Quality: Wrapped the `[agewallet_protected]` shortcode's wrapper markup in `esc_attr()`.
+* Docs: Added an "External services" section documenting the AgeWallet verification service and optional Strict-mode analytics integrations (Google Analytics 4, Google Tag Manager, Facebook Pixel), each with the provider's Terms and Privacy links.
+* Security: Improved script handling and output escaping across the admin and gate paths.
 * Fix: The `[agewallet_protected]` shortcode no longer triggers the full-page overlay on otherwise-ungated pages — it renders its inline placeholder only.
 * Fix: Gate Appearance colours and border-radii now apply consistently in both Standard and Strict modes; a blank radius field uses the rounded default instead of squared corners.
 * Docs: Removed three readme references to action hooks the plugin does not actually fire.
@@ -443,19 +445,19 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 * Structured Gate Appearance form: dedicated colour pickers (overlay backdrop, card background and border, body and disclaimer text, Agree / Disagree buttons) and card / button border-radius inputs replace the previous free-text "Custom CSS" field. Defaults match the previous look; saving without changes produces no visual diff.
 * Strict Mode Analytics: dedicated Google Analytics 4 Measurement ID, Google Tag Manager Container ID, and Facebook Pixel ID fields replace the previous free-text Header / Footer Scripts inputs. AgeWallet now renders the canonical official snippets for each provider when the corresponding ID is set.
 * Customizer-driven custom CSS: arbitrary CSS overrides should now live in **Appearance → Customize → Additional CSS**. AgeWallet automatically renders the Customizer's saved CSS into the Strict-mode skeleton (it already applies on Standard mode via the normal WordPress lifecycle). For exotic per-site needs (custom fonts, non-standard analytics providers), use the `agewallet_skeleton_head` / `agewallet_skeleton_footer` action hooks listed in the Developer Hooks guide.
-* Text domain renamed from `agewallet` to `agewallet-oidc-client` to match the WordPress.org-assigned plugin slug. Plugin folder, main file, and Text Domain header all aligned.
-* Quality: admin-page styles moved into a dedicated stylesheet enqueued via `admin_enqueue_scripts` (no more inline `<style>` blocks); raw `$_GET` no longer logged from the OIDC handler's debug paths; shortcode return annotated for the static-analyzer escape check.
-* No external installs existed before this version, so the previous `agewallet_custom_css` / `agewallet_head_scripts` / `agewallet_footer_scripts` options are removed outright; their stored values (if any) are cleared by `uninstall.php` on plugin deletion.
+* Text domain renamed to `agewallet-oidc-client`. Plugin folder, main file, and Text Domain header aligned.
+* Security: Admin styles moved into an enqueued stylesheet; tightened debug-log input sanitisation and shortcode escape annotations.
+* The previous `agewallet_custom_css`, `agewallet_head_scripts`, and `agewallet_footer_scripts` options are removed; their stored values (if any) are cleared by `uninstall.php` on plugin deletion.
 
 = 1.5.3 =
-* Security & Quality: Comprehensive cleanup pass driven by the WordPress.org Plugin Check tool. All `$_GET`, `$_SERVER`, and `$_COOKIE` reads now go through `wp_unslash()` + appropriate `sanitize_*()` wrappers. All translated output is escaped (`esc_html__()` / `esc_url()` / etc.). Translator comments added to every `__()`/`esc_html__()` call that uses placeholders, and ordered-placeholder syntax adopted where multiple placeholders appear. Direct `unlink()` calls replaced with `wp_delete_file()`; `strip_tags()` replaced with `wp_strip_all_tags()`. Template variables prefixed (`$aw_*`). Plugin's own debug logging routed through a centralised helper that respects `OPT_DEBUG_MODE`, replacing scattered `error_log()` calls. Removed manual `load_plugin_textdomain()` call (no longer needed under WP 4.6+).
-* Compatibility: Minimum WordPress version raised from 5.8 to 6.0. The plugin's OIDC handler uses `str_ends_with()`, which only exists in WP 5.9 / PHP 8.0 and later; 6.0 is also the floor WP.org recommends for active plugins.
+* Security: Comprehensive input-sanitisation, output-escaping, and internationalisation cleanup across the plugin.
+* Compatibility: Minimum WordPress version raised from 5.8 to 6.0.
 
 = 1.5.2 =
-* Maintenance: WooCommerce Marketplace prep. Added the standard `WC requires at least` and `WC tested up to` plugin header lines, and declared High-Performance Order Storage (HPOS) compatibility. The plugin's WooCommerce integration only reads cart and product data, so HPOS compatibility is safe.
+* Compatibility: Added `WC requires at least` / `WC tested up to` plugin headers and declared WooCommerce High-Performance Order Storage (HPOS) compatibility.
 
 = 1.5.1 =
-* Maintenance: Prepared the plugin for the WordPress.org plugin directory. Removed the bundled third-party update checker (WordPress.org now handles all updates). Added GPL-2.0-or-later license declaration. Reconciled the version string across the plugin header, the internal `AGEWALLET_VERSION` constant, and `readme.txt`. Added `uninstall.php` for clean removal of options, scheduled cron events, and the strict-mode cache directory.
+* Maintenance: Housekeeping and licence declaration. Added `uninstall.php` for clean removal of options, scheduled cron events, and the strict-mode cache directory.
 
 = 1.4.0 =
 * Feature: Metadata pass-through. An opaque per-verification string (up to 4096 bytes) can now be attached to every AgeWallet verification. The Credentials page exposes a "Metadata source" picker with three modes: Off, Static text (literal string), and Auto JSON (compose from selected fields across post, user, request, and archive context groups). Metadata is computed at gate-render time and HMAC-signed for transport via the launch URL. Two filter hooks let developers extend: `agewallet_auto_metadata` (array, before encoding) and `agewallet_metadata` (final string, after encoding). Read back with `agewallet_get_metadata()`.
@@ -495,8 +497,11 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 
 == Upgrade Notice ==
 
+= 1.5.6 =
+Improved security around script and style handling and shortcode content escaping. No functional changes for site owners.
+
 = 1.5.5 =
-Documentation and code-quality release for the WordPress.org directory (External services disclosure, full identifier prefixing, inline-script cleanup). No functional changes.
+Documentation and code-quality release (External services disclosure, script cleanup, small fixes). No functional changes.
 
 = 1.4.0 =
 Adds metadata pass-through and a full WooCommerce integration with three-mode checkout gating (Off / Force Always / Conditional on Cart), per-product and per-category/tag regulated flagging, and per-checkout cart context attached as metadata.
