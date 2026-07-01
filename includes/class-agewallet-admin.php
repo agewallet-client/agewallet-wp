@@ -245,6 +245,39 @@ class AgeWallet_Admin {
 
 	// --- Page Renderer Wrapper (Unified Layout) ---
 
+	/**
+	 * Renders a prominent "Register for an AgeWallet account" notice when the
+	 * Client ID or Client Secret hasn't been saved yet. Hidden once both are
+	 * populated. Called from render_page_wrapper() so it appears at the top of
+	 * every AgeWallet admin screen until credentials are configured.
+	 *
+	 * @since 1.5.6
+	 */
+	private function render_register_prompt_if_missing() {
+		$client_id     = trim( (string) get_option( AgeWalletOIDCClientPro::OPT_CLIENT_ID, '' ) );
+		$client_secret = trim( (string) get_option( AgeWalletOIDCClientPro::OPT_CLIENT_SECRET, '' ) );
+		if ( '' !== $client_id && '' !== $client_secret ) {
+			return;
+		}
+		?>
+		<div class="notice notice-warning" style="padding: 15px 20px; margin: 0 0 20px 0; border-left-width: 6px;">
+			<h2 style="margin: 0 0 6px 0;"><?php esc_html_e( 'You need an AgeWallet account to use this plugin', 'agewallet-oidc-client' ); ?></h2>
+			<p style="font-size: 14px; margin: 0 0 8px 0;">
+				<?php esc_html_e( 'Register for a free AgeWallet account to get the Client ID and Client Secret you\'ll need to enter on the API Credentials screen.', 'agewallet-oidc-client' ); ?>
+			</p>
+			<p style="font-size: 14px; margin: 0 0 12px 0;">
+				<strong><?php esc_html_e( 'New accounts get $5 of free verification credit to get you started.', 'agewallet-oidc-client' ); ?></strong>
+			</p>
+			<p style="margin: 0;">
+				<a href="https://app.agewallet.io/register" target="_blank" rel="noopener noreferrer" class="button button-primary button-hero">
+					<?php esc_html_e( 'Register at agewallet.io', 'agewallet-oidc-client' ); ?>
+					<span class="dashicons dashicons-external" style="line-height: 1.5;"></span>
+				</a>
+			</p>
+		</div>
+		<?php
+	}
+
 	private function render_page_wrapper( $title, $callback, $option_group = null, $next_step = null ) {
 		?>
 		<div class="wrap">
@@ -253,6 +286,8 @@ class AgeWallet_Admin {
 				<a href="mailto:support@agewallet.com" class="button"><?php esc_html_e( 'Get Support', 'agewallet-oidc-client' ); ?></a>
 			</div>
 			<hr style="margin: 0 0 20px 0;">
+
+			<?php $this->render_register_prompt_if_missing(); ?>
 
 			<div style="display:flex; gap:20px; flex-wrap:wrap;">
 				<div style="flex: 1; min-width: 300px;">

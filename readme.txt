@@ -68,7 +68,7 @@ Only if you enter a Facebook Pixel ID on the Strict Mode Analytics tab, and only
 
 = Do I need an AgeWallet account to use this plugin? =
 
-Yes. The plugin is a client for the AgeWallet OIDC age-verification service. Apply for a business account at https://agewallet.com to obtain a Client ID and Client Secret, then enter them on the plugin's Credentials screen.
+Yes. The plugin is a client for the AgeWallet OIDC age-verification service. Register a business account at https://app.agewallet.io/register to obtain a Client ID and Client Secret, then enter them on the plugin's Credentials screen. New accounts receive $5 of free verification credit to get you started.
 
 = Will the plugin work with my caching plugin or CDN (Cloudflare, Varnish, WP Rocket, etc.)? =
 
@@ -123,12 +123,12 @@ This guide explains how to configure and use the plugin using the new setup wiza
 
 = 1. Initial Configuration (Step 1) =
 
-Before the plugin can work, you must connect it to your AgeWallet account.
+Before the plugin can work, you must connect it to your AgeWallet account. If you don't have an account yet, register one at https://app.agewallet.io/register — new accounts receive $5 of free verification credit.
 
 1. Click AgeWallet in your WordPress admin menu to see the Welcome screen.
 2. Click on Step 1: API Credentials.
 3. In the "API Configuration" section, you will see a field labeled Redirect URI. Copy this URL.
-4. Log in to your AgeWallet business account dashboard.
+4. Log in to your AgeWallet business account dashboard at https://app.agewallet.io.
 5. Create a new application and paste the Redirect URI from the plugin settings into the corresponding field in your AgeWallet dashboard.
 6. AgeWallet will provide you with a Client ID and a Client Secret.
 7. Copy these keys and paste them into the "Client ID" and "Client Secret" fields in the plugin settings.
@@ -433,6 +433,8 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 = 1.5.6 =
 * Security: Improved script and style handling on the age-gate loading screen and post-verification handoff page.
 * Security: Hardened content escaping in the `[agewallet_protected]` shortcode.
+* UX: The AgeWallet admin screens now show a prominent "Register at agewallet.io" prompt when the Client ID or Client Secret is missing. The prompt hides automatically once both are saved.
+* Docs: Updated the Usage Guide and FAQ with the new https://app.agewallet.io/register signup URL.
 
 = 1.5.5 =
 * Docs: Added an "External services" section documenting the AgeWallet verification service and optional Strict-mode analytics integrations (Google Analytics 4, Google Tag Manager, Facebook Pixel), each with the provider's Terms and Privacy links.
