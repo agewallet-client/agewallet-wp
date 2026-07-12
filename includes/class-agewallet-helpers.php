@@ -467,15 +467,15 @@
             $radius_card = get_option( 'agewallet_radius_card', '' );
             $radius_btn  = get_option( 'agewallet_radius_btn',  '' );
             $vars = array(
-                '--aw-bg'               => get_option( 'agewallet_color_overlay_bg',    '#000000' ),
-                '--aw-card'             => get_option( 'agewallet_color_card_bg',       '#0d0d10' ),
-                '--aw-card-border'      => get_option( 'agewallet_color_card_border',   '#1e1e24' ),
-                '--aw-text'             => get_option( 'agewallet_color_text',          '#f5f7fb' ),
-                '--aw-muted'            => get_option( 'agewallet_color_muted',         '#c8cbd4' ),
-                '--aw-purple'           => get_option( 'agewallet_color_btn_yes_bg',    '#6a1b9a' ),
-                '--aw-purple-700'       => get_option( 'agewallet_color_btn_yes_hover', '#5a1784' ),
-                '--aw-no-btn-dark-bg'   => get_option( 'agewallet_color_btn_no_bg',     '#2a2a32' ),
-                '--aw-no-btn-dark-text' => get_option( 'agewallet_color_btn_no_text',   '#cdd0d7' ),
+                '--aw-bg'               => get_option( 'agewallet_color_overlay_bg',    '#0c0a14' ),
+                '--aw-card'             => get_option( 'agewallet_color_card_bg',       '#191029' ),
+                '--aw-card-border'      => get_option( 'agewallet_color_card_border',   '#221634' ),
+                '--aw-text'             => get_option( 'agewallet_color_text',          '#ffffff' ),
+                '--aw-muted'            => get_option( 'agewallet_color_muted',         '#b8b8b8' ),
+                '--aw-purple'           => get_option( 'agewallet_color_btn_yes_bg',    '#9d70c9' ),
+                '--aw-purple-700'       => get_option( 'agewallet_color_btn_yes_hover', '#8b46cf' ),
+                '--aw-no-btn-dark-bg'   => get_option( 'agewallet_color_btn_no_bg',     '#221634' ),
+                '--aw-no-btn-dark-text' => get_option( 'agewallet_color_btn_no_text',   '#b8b8b8' ),
                 '--aw-radius'           => ( '' === trim( (string) $radius_card ) ) ? '' : ( (int) $radius_card ) . 'px',
                 '--aw-btn-radius'       => ( '' === trim( (string) $radius_btn ) )  ? '' : ( (int) $radius_btn ) . 'px',
             );

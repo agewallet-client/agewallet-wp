@@ -739,15 +739,15 @@ class AgeWallet_Admin {
 	 */
 	public static function appearance_color_defaults() {
 		return array(
-			'agewallet_color_overlay_bg'    => '#000000',
-			'agewallet_color_card_bg'       => '#0d0d10',
-			'agewallet_color_card_border'   => '#1e1e24',
-			'agewallet_color_text'          => '#f5f7fb',
-			'agewallet_color_muted'         => '#c8cbd4',
-			'agewallet_color_btn_yes_bg'    => '#6a1b9a',
-			'agewallet_color_btn_yes_hover' => '#5a1784',
-			'agewallet_color_btn_no_bg'     => '#2a2a32',
-			'agewallet_color_btn_no_text'   => '#cdd0d7',
+			'agewallet_color_overlay_bg'    => '#0c0a14',
+			'agewallet_color_card_bg'       => '#191029',
+			'agewallet_color_card_border'   => '#221634',
+			'agewallet_color_text'          => '#ffffff',
+			'agewallet_color_muted'         => '#b8b8b8',
+			'agewallet_color_btn_yes_bg'    => '#9d70c9',
+			'agewallet_color_btn_yes_hover' => '#8b46cf',
+			'agewallet_color_btn_no_bg'     => '#221634',
+			'agewallet_color_btn_no_text'   => '#b8b8b8',
 		);
 	}
 

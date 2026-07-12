@@ -12,14 +12,14 @@ html {
 	padding: 0;
 	height: 100%;
 	width: 100%;
-	background-color: var( --aw-bg, #000 );
+	background-color: var( --aw-bg, #0c0a14 );
 }
 
 .aw-spinner {
 	width: 40px;
 	height: 40px;
 	border: 4px solid rgba( 255, 255, 255, 0.1 );
-	border-left-color: var( --aw-purple, #6a1b9a );
+	border-left-color: var( --aw-purple, #9d70c9 );
 	border-radius: 50%;
 	animation: aw-spin 1s linear infinite;
 	margin: 0 auto 15px auto;

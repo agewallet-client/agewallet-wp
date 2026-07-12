@@ -9,14 +9,14 @@
  */
 
 :root {
-  --aw-bg: #000;
-  --aw-card: #0d0d10;
-  --aw-card-border: #1e1e24;
-  --aw-text: #f5f7fb;
-  --aw-muted: #c8cbd4;
-  --aw-danger: #ff4d4f;
-  --aw-purple: #6a1b9a;      /* AgeWallet purple */
-  --aw-purple-700: #5a1784;  /* hover/darker */
+  --aw-bg: #0c0a14;
+  --aw-card: #191029;
+  --aw-card-border: #221634;
+  --aw-text: #ffffff;
+  --aw-muted: #b8b8b8;
+  --aw-danger: #ef4444;
+  --aw-purple: #9d70c9;      /* AgeWallet brand purple */
+  --aw-purple-700: #8b46cf;  /* vivid brand purple (hover) */
   --aw-shadow: 0 10px 30px rgba(0,0,0,.45);
   --aw-radius: 16px;
   --aw-btn-radius: 12px;
@@ -25,9 +25,9 @@
   --aw-no-btn-light-bg: #f5f5f5; /* Background for 'No' button on light BG */
   --aw-no-btn-light-border: #ddd; /* Border for 'No' button on light BG */
   --aw-no-btn-light-text: #333; /* Text for 'No' button on light BG */
-  --aw-no-btn-dark-bg: #2a2a32; /* Background for 'No' button on dark BG */
-  --aw-no-btn-dark-border: #3a3a44; /* Border for 'No' button on dark BG */
-  --aw-no-btn-dark-text: #cdd0d7; /* Text for 'No' button on dark BG */
+  --aw-no-btn-dark-bg: #221634; /* Background for 'No' button on dark BG */
+  --aw-no-btn-dark-border: #2e2044; /* Border for 'No' button on dark BG */
+  --aw-no-btn-dark-text: #b8b8b8; /* Text for 'No' button on dark BG */
 }
 
 /* --- Initial Hiding --- */
@@ -311,7 +311,7 @@ body.aw-verify-body {
 .aw-gate__overlay .aw-gate__btn--no:hover,
 .aw-gate__overlay .aw-gate__btn--no:focus { /* Dark hover */
     filter: none;
-    background: #3a3a44; /* Darken slightly on hover */
+    background: #2e2044; /* Darken slightly on hover */
 }
 
 .aw-gate__btn--no:active {
@@ -324,7 +324,7 @@ body.aw-verify-body {
 .aw-gate__btn--yes {
   background: var(--aw-purple);
   color: #fff;
-  box-shadow: 0 6px 15px rgba(106, 27, 154, 0.25); /* Adjusted shadow */
+  box-shadow: 0 6px 15px rgba(157, 112, 201, 0.25); /* Adjusted shadow */
 }
 
 .aw-gate__btn--yes:hover,
@@ -332,12 +332,12 @@ body.aw-verify-body {
   background: var(--aw-purple-700);
   transform: translateY(-1px);
   color: #fff; /* Ensure text remains white */
-  box-shadow: 0 8px 20px rgba(106, 27, 154, 0.30); /* Slightly larger shadow on hover */
+  box-shadow: 0 8px 20px rgba(157, 112, 201, 0.30); /* Slightly larger shadow on hover */
 }
 
 .aw-gate__btn--yes:active {
   transform: translateY(0);
-  box-shadow: 0 4px 10px rgba(106, 27, 154, 0.20); /* Smaller shadow on active */
+  box-shadow: 0 4px 10px rgba(157, 112, 201, 0.20); /* Smaller shadow on active */
 }
 
 
