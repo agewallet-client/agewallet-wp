@@ -419,10 +419,9 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 == Screenshots ==
 
 1. The age gate overlay shown to unverified visitors in Standard (Overlay) mode.
-2. The Strict Mode "Verifying..." skeleton screen used when content must not load until verification completes.
-3. The plugin's setup wizard — Step 1 (API Credentials).
-4. The Content Guarding screen — taxonomy, path, and global protection rules.
-5. The WooCommerce checkout-gating settings and per-product Regulated flag.
+2. The plugin's setup wizard — Step 1 (API Credentials).
+3. The Content Guarding screen — taxonomy, path, and global protection rules, plus the WooCommerce "gate the checkout" setting.
+4. The per-product Regulated status control on the WooCommerce product edit screen.
 
 == License ==
 
