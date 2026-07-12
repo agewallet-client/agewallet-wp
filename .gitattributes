@@ -1,0 +1,4 @@
+# WordPress.org directory assets (icon/banner/screenshots): version-controlled
+# here, but excluded from `git archive` exports so they never ship in the plugin zip.
+.wordpress-org export-ignore
+.gitattributes export-ignore
