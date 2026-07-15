@@ -1,6 +1,6 @@
-=== AgeWallet OIDC Client ===
+=== AgeWallet – Age Verification & Age Estimation for WordPress & WooCommerce ===
 Contributors: agewallet, cookedbiscuits
-Tags: age verification, age gate, agewallet, content restriction, oidc
+Tags: age verification, age estimation, age gate, woocommerce, content gating
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
@@ -8,24 +8,35 @@ Stable tag: 1.5.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Secure, customizable age verification for WordPress via the AgeWallet OIDC service.
-Cache-compatible and designed for legal compliance.
+Age verification and age estimation for WordPress & WooCommerce. Add a content-gating age gate with cache-safe protection modes.
 
 == Description ==
 
-The AgeWallet OIDC Client plugin adds age verification and content gating to your WordPress website, backed by the AgeWallet™ verification service over OpenID Connect (OIDC).
+AgeWallet adds **age verification** and **age estimation** to your WordPress website, with content gating and an age-gated checkout for WooCommerce. Verification is backed by the AgeWallet™ service over OpenID Connect (OIDC), giving your WordPress or WooCommerce store a compliant, privacy-respecting age gate that visitors complete once.
 
-It is designed to be straightforward to set up, fully customizable, and compatible with all WordPress hosting environments — including sites behind aggressive page caches (Cloudflare, Varnish, WP Rocket, LiteSpeed, etc.).
+Whether you need document-based age verification, AI-assisted age estimation, or a full content-gating age gate, AgeWallet is straightforward to set up, fully customizable, and works on every WordPress host — including sites behind aggressive page caches (Cloudflare, Varnish, WP Rocket, LiteSpeed).
 
-Two protection modes are available. **Standard (Overlay)** mode hides gated content via a client-side overlay; it is SEO-friendly and works on any cached page. **High Security (Strict)** mode short-circuits the page entirely until the visitor verifies, using a cookieless "skeleton" template that pairs with "Cache Everything" CDN rules.
+= Age verification and age estimation methods =
 
-Customize the gate's appearance from the Gate Appearance tab (logo, copy, colours, button radii) and override anything else from Appearance → Customize → Additional CSS. Strict-mode analytics — Google Analytics 4, Google Tag Manager, and Facebook Pixel — are configurable from the Strict Mode Analytics tab.
+Multiple age-assurance methods are supported, so you can meet age-restriction requirements without collecting or storing sensitive identity data yourself. Every verification can carry an opaque metadata payload (≤4KB) that round-trips through the OIDC flow and surfaces on `/userinfo`, letting integrators correlate age checks with their own records.
 
-Protection rules cover the whole site, individual URL paths, taxonomies (categories, tags, custom taxonomies), per-post overrides via the editor sidebar, and the `[agewallet_protected]` shortcode for inline content. WooCommerce is supported out of the box with three checkout-gate modes and per-product / per-category regulated flagging.
+= Two protection modes =
 
-Every verification can carry an opaque metadata payload (≤4KB) that round-trips through the OIDC flow and surfaces on the `/userinfo` response, letting integrators correlate verifications with their own backend records.
+**Standard (Overlay)** hides gated content via a client-side overlay — SEO-friendly, works on any cached page. **High Security (Strict)** short-circuits the page entirely until the visitor passes age verification, using a cookieless "skeleton" template that pairs with "Cache Everything" CDN rules.
 
-For the full feature enumeration see Other Notes; for setup walkthroughs, the available CSS hooks, and the developer-hook list, see the Usage Guide, CSS Customization Guide, and Developer Hooks sections below.
+= Built for WooCommerce =
+
+WooCommerce is supported out of the box: three checkout-gate modes plus per-product / per-category regulated flagging, so age-restricted items require age verification before checkout while the rest of your catalog stays open.
+
+= Flexible age-gate rules =
+
+Rules cover the whole site, individual URL paths, taxonomies (categories, tags, custom taxonomies), per-post overrides via the editor sidebar, and the `[agewallet_protected]` shortcode for inline content — so you gate exactly where your content needs it.
+
+= Fully customizable gate =
+
+Customize the age gate from the Gate Appearance tab (logo, copy, colours, button radii) and override anything else from Appearance → Customize → Additional CSS. Strict-mode analytics (Google Analytics 4, Google Tag Manager, Facebook Pixel) are configurable from the Strict Mode Analytics tab.
+
+For the full feature list see Other Notes. Setup walkthroughs, the CSS hook reference, and the developer hook list ship with the plugin — see AgeWallet → Usage Guide, CSS Guide, and Developer Hooks in your WordPress admin.
 
 == External services ==
 
@@ -116,305 +127,6 @@ Deleting the plugin from the Plugins screen runs `uninstall.php`, which removes 
     * Per-category and per-tag regulated flagging on the term-edit screens (products inherit from any of their categories or tags).
     * Cart-context metadata (cart hash, total, currency, line-item count, billing country) automatically attached to verifications. In Conditional-on-Cart mode, a cart_triggers audit trail captures which products / categories / tags fired the gate.
 * Metadata pass-through: attach an opaque per-verification string (up to 4 KB) — static text or auto-composed JSON of selected request-context fields — that round-trips through the OIDC flow and surfaces on the `/userinfo` response.
-
-== Usage Guide ==
-
-This guide explains how to configure and use the plugin using the new setup wizard.
-
-= 1. Initial Configuration (Step 1) =
-
-Before the plugin can work, you must connect it to your AgeWallet account. If you don't have an account yet, register one at https://app.agewallet.io/register — new accounts receive $5 of free verification credit.
-
-1. Click AgeWallet in your WordPress admin menu to see the Welcome screen.
-2. Click on Step 1: API Credentials.
-3. In the "API Configuration" section, you will see a field labeled Redirect URI. Copy this URL.
-4. Log in to your AgeWallet business account dashboard at https://app.agewallet.io.
-5. Create a new application and paste the Redirect URI from the plugin settings into the corresponding field in your AgeWallet dashboard.
-6. AgeWallet will provide you with a Client ID and a Client Secret.
-7. Copy these keys and paste them into the "Client ID" and "Client Secret" fields in the plugin settings.
-8. Click "Save Changes", then click "Next: Content Guarding".
-
-= 2. Setting up Protection Rules (Step 2) =
-
-You have several ways to protect content. You can mix and match these methods on the Step 2: Content Guarding page.
-
-A. Security Mode
-
-* Standard (Overlay): The page loads normally, but a CSS overlay covers the content. Verified users see the content revealed instantly. Best for SEO.
-* High Security (Strict): The server sends a generic "Skeleton" page instead of your content. Secure content is fetched via an API call only after the user is verified. This prevents bypassing the gate by disabling JavaScript.
-
-B. Global Scope
-
-* No automatic protection: Only protects content you specify manually (via Paths, Per-Post settings, or Shortcodes).
-* Protect entire site, except homepage: Gates every page and post except your front page.
-* Protect entire site, including homepage: Gates every single page on your site.
-
-C. Taxonomy Rules
-
-You can define rules based on Categories, Tags, or Custom Taxonomies (like WooCommerce Product Categories).
-* Gate All Terms: Gates every post belonging to that taxonomy.
-* Exclude All Terms: Ensures posts in that taxonomy are always public.
-* Specific Rules: Search for specific terms (e.g., "Premium Content" category) to Gate or Exclude individually. Note: Exclusion rules take priority over Gating rules.
-
-D. Path-Based Rules
-
-* Paths to Protect: (Only active if "Specific URL paths" is selected above). Enter comma-separated paths. Any URL containing these paths will be gated.
-    * Example: `/shop/, /videos/` will protect `example.com/shop/`, `example.com/shop/product-1/`, and `example.com/videos/my-video/`.
-* Paths to Exclude: Enter paths that should always be public, even if 'Protect entire site' is on.
-    * Example: `/privacy-policy/, /terms/`.
-
-E. WooCommerce (visible when WooCommerce is active)
-
-The Content Guarding page shows a "WooCommerce" section below the Taxonomy Rules. The plugin also adds an "AgeWallet" tab to the Product Data metabox and a checkbox to the term-edit screens for Categories and Tags.
-
-* Checkout Gating: chooses how the checkout page itself is gated.
-    * Off: no checkout-specific rule; the Security Mode / Block / Path / Taxonomy rules apply unchanged.
-    * Force Always: every visit to the checkout page requires age verification, regardless of other rules.
-    * Conditional on Cart: the checkout requires verification only when the cart contains at least one product flagged as regulated AND the visitor isn't already verified. Useful for mixed-catalog stores where only some products require age gating.
-
-* Checkout Metadata Fields: pick which cart-context values get attached to each verification as metadata that round-trips through the OIDC flow back to your backend. Available fields: cart hash, cart total, currency code, WordPress user ID, billing country, number of line items. Defaults: cart hash, cart total, currency. Use the `agewallet_wc_checkout_metadata` filter (see Developer Hooks) for fully custom payloads.
-
-* Per-Product Regulated Status: open any product in WooCommerce > Products > Edit Product > AgeWallet tab.
-    * Not regulated (default): does NOT trigger the Conditional-on-Cart gate.
-    * Regulated: cart containing this product fires the Conditional-on-Cart gate.
-    * Override — explicitly not regulated: forces this product to bypass the gate even when one of its categories or tags is flagged regulated. Useful for an edge product inside an otherwise-regulated category.
-
-* Per-Category / Per-Tag Regulated Flag: on the term-edit screens (Products > Categories or Products > Tags), check "Regulated for AgeWallet checkout gate". Products inherit the regulated flag from any of their categories or tags (unless overridden per-product).
-
-= 3. Customizing the Gate Appearance (Step 3) =
-
-You can customize the age gate to match your brand on the Step 3: Gate Appearance page.
-
-* Gate Logo: Upload or select a logo from your Media Library.
-* Logo Width (px): Set a specific width for your logo, or leave at 0 for natural size.
-* Gate Copy: Use the text editor to change the main message your users see.
-* Hide Default Heading: Check this box to remove the "You Must Verify Your Age" title (e.g., if your custom copy already includes a title).
-* Colours: Pick the overlay backdrop, card background and border, body and disclaimer text colours, and the Agree / Disagree button colours from the dedicated colour pickers.
-* Card / button border radius: Set how rounded the card and buttons appear.
-* For anything beyond these structured controls (custom fonts, site-wide rules, advanced selectors, hover variants not in the form), use **Appearance → Customize → Additional CSS**. AgeWallet applies that CSS to the gate on both Standard and Strict modes — see the CSS Customization Guide below for the available class names.
-
-= 4. Strict Mode Analytics (Step 4) =
-
-Note: These settings only apply if you are using High Security (Strict) Mode.
-
-Because Strict Mode short-circuits the theme during verification, the analytics tags your theme normally renders do NOT fire on the "Verifying..." loading screen. Enter the IDs of the services you use and AgeWallet renders their official snippets directly. Leave any field blank to skip it.
-
-* Google Analytics 4 — Measurement ID (`G-XXXXXXXXXX`)
-* Google Tag Manager — Container ID (`GTM-XXXXXXX`)
-* Facebook Pixel — numeric Pixel ID
-
-For analytics providers we don't ship a field for (Plausible, Fathom, Microsoft Clarity, Hotjar, etc.), add them via the `agewallet_skeleton_head` / `agewallet_skeleton_footer` action hooks in a small mu-plugin or your theme's `functions.php` — see the Developer Hooks section.
-
-= 5. Per-Post / Per-Page Control =
-
-On the Edit Post or Edit Page screen, you will see an "Age Restriction" box in the sidebar. These settings override all global rules.
-
-* Require age verification: Check this to force the gate on this single post, even if your global setting is "No automatic protection."
-* Exclude from age verification: Check this to make a post public, even if it's in a protected path (like `/shop/`) or a protected Category.
-
-= 6. Shortcode Protection =
-
-To protect just one part of a post (like a single video or paragraph), wrap it in the `[agewallet_protected]` shortcode.
-
-`[agewallet_protected]`
-This content, and only this content, will be hidden until the user verifies their age.
-`[/agewallet_protected]`
-
-Note: Shortcode protection only works in Standard Mode. In Strict Mode, the shortcode will NOT work.
-
-= 7. Caching & Maintenance =
-
-If you use High Security Mode, the plugin generates static HTML caches of your protected pages to ensure speed.
-
-* Automatic Management: The cache is automatically cleared when you update posts, switch themes, create/edit menus, or modify taxonomy terms.
-* Scheduled Cleanup: You can configure an automatic cache purge schedule (default: every 4 hours) in the "Cache Control" settings tab.
-* Manual Purge: If you change settings and don't see them update immediately, click the "Purge Cache" button available in the sidebar of any AgeWallet settings page (or under Cache Control).
-
-== CSS Customization Guide ==
-
-Use this guide to customize the appearance of the AgeWallet™ age gate and the Strict Mode loading screen.
-
-For most customizations, the colour and radius controls in Step 3: Gate Appearance are sufficient — they map directly to the CSS custom properties listed in the next subsection.
-
-For anything beyond that (custom fonts, site-wide rules, advanced selectors, hover states not exposed in the form), add your rules in **Appearance → Customize → Additional CSS**. AgeWallet applies that CSS to the gate on both Standard and Strict modes. The gate exposes a stable DOM with the `.aw-gate__*` and `.agewallet-*` class names below — write rules against them as you would for any theme component.
-
-= CSS custom properties (set by the Gate Appearance form) =
-
-The plugin's gate stylesheet uses these CSS variables; the Gate Appearance pickers write to them. You can also override them yourself in Customizer Additional CSS:
-
-* `--aw-bg` — Overlay backdrop (Standard mode) and skeleton background (Strict mode).
-* `--aw-card` — Card background.
-* `--aw-card-border` — Card border colour.
-* `--aw-text` — Card body text colour.
-* `--aw-muted` — Disclaimer text colour.
-* `--aw-purple` — "I Agree" button background.
-* `--aw-purple-700` — "I Agree" hover state.
-* `--aw-no-btn-dark-bg` — "I Disagree" button background.
-* `--aw-no-btn-dark-text` — "I Disagree" button text.
-* `--aw-radius` — Card border radius (px).
-* `--aw-btn-radius` — Button border radius (px).
-
-= 1. Overlay & Layout =
-
-* `.aw-gate__overlay` - The full-screen overlay background.
-Controls background color, opacity, and positioning of the age gate.
-
-* `.aw-gate__card` - The main container (card) holding all gate content.
-Controls background color, border radius, padding, and max-width.
-
-= 2. Loading Screen (Strict Mode) =
-
-* `.aw-skeleton-card` - The card container specifically during the "Verifying..." loading state.
-Useful for adjusting the minimum height or layout during the initial check.
-
-* `.aw-spinner` - The loading spinner animation.
-Controls the size, border color, and speed of the spinner.
-
-* `body.agewallet-strict-loading` - The class applied to the body while the skeleton is active.
-Useful for hiding other page elements while verification is in progress.
-
-= 3. Logo Area =
-
-* `.aw-gate__logo-wrap` - Wrapper for the AgeWallet logo area.
-Useful for centering or adjusting logo spacing.
-
-* `.aw-gate__logo` - The logo image itself.
-Controls image size, margin, and alignment.
-
-= 4. Text Content =
-
-* `.aw-gate__title` - The headline text ("You Must Verify Your Age").
-Controls font size, color, weight, and margin.
-
-* `.aw-gate__desc` - The main description paragraph under the title.
-Controls text color, font size, and line height.
-
-= 5. Buttons =
-
-* `.aw-gate__buttons` - Container for the "I Agree" and "I Disagree" buttons.
-Use this to control button spacing or layout (flex/grid, gap, alignment).
-
-* `.aw-gate__btn--yes` - "I Agree" button.
-Controls background color, hover state, border, and text color.
-
-* `.aw-gate__btn--no` - "I Disagree" button.
-Controls background color, hover state, border, and text color.
-
-= 6. Error & Disclaimer =
-
-* `.aw-gate__error` - Error message shown when the user doesn't meet requirements.
-Controls text color, font size, and margin.
-
-* `.aw-gate__disclaimer` - Disclaimer or fine print text at the bottom.
-Controls text color, font size, and spacing.
-
-= 7. Shortcode Wrappers =
-
-* `.agewallet-protected-wrapper` - The main container for protected shortcode content.
-Useful for adding margins.
-
-* `.agewallet-protected-placeholder` - The placeholder box shown to unverified users, contains the gate prompt.
-Controls borders, background, and padding.
-
-= Customization Tips =
-
-For colour and radius tweaks, the Gate Appearance form is the easiest path. For anything else, paste your CSS into **Appearance → Customize → Additional CSS**:
-
-`
-.aw-gate__btn--yes {
-    background-color: #28a745 !important;
-    color: #fff !important;
-}
-`
-
-Customizer CSS targets the gate's `.aw-gate__*` and `.agewallet-*` classes in both Standard and Strict modes — no plugin setting required.
-
-Use your browser's developer tools (Inspect Element) to preview your changes live.
-
-== Developer Hooks ==
-
-This plugin includes a number of action and filter hooks to allow for advanced customization and integration.
-
-= Main Plugin File =
-* `agewallet_dependency_files` (filter) - Modify the array of core class files to be loaded.
-* `agewallet_initialized` (action) - Fires after all plugin classes have been instantiated.
-* `agewallet_activated` (action) - Fires when the plugin is activated.
-* `agewallet_deactivated` (action) - Fires when the plugin is deactivated.
-
-= Admin Settings (class-agewallet-admin.php) =
-* `agewallet_admin_menu_capability` (filter) - Change the user capability required to access the settings page.
-
-= Helpers (class-agewallet-helpers.php) =
-* `agewallet_hmac_secret` (filter) - Override the HMAC secret retrieved from the database.
-* `agewallet_redirect_uri` (filter) - Modify the `/agewallet/callback/` URL.
-* `agewallet_success_url` (filter) - Modify the `/agewallet/success/` URL.
-* `agewallet_launch_url` (filter) - Modify the `/agewallet/launch/` URL.
-* `agewallet_cookie_path` (filter) - Modify the path used for the verification cookie.
-* `agewallet_current_url` (filter) - Override the auto-detected current URL.
-* `agewallet_cookie_payload` (filter) - Modify the data array stored inside the signed cookie before it is signed.
-* `agewallet_cookie_validation_error` (action) - Fires when a cookie fails HMAC validation (args: error_type, cookie_value).
-
-= Metadata Builder (class-agewallet-metadata-builder.php) =
-* `agewallet_auto_metadata` (filter) - Modify the resolved auto-metadata fields array (post_id, post_slug, request_path, user_id, etc.) before it is JSON-encoded into the metadata string.
-
-= OIDC Handler (class-agewallet-oidc-handler.php) =
-* `agewallet_state_transient_expiration` (filter) - Change the expiration time for the OIDC session transient.
-* `agewallet_auth_request_params` (filter) - Modify the parameters sent in the authorization request to AgeWallet.
-* `agewallet_metadata` (filter) - Modify the metadata string just before it is signed and attached to the verification request. Receives the value produced by the configured metadata source (Off, Static text, or Auto JSON of selected fields).
-* `agewallet_oidc_error` (action) - Fires when an error is returned from the AgeWallet callback.
-* `agewallet_token_request_args` (filter) - Modify the arguments for the server-to-server token exchange request.
-* `agewallet_verification_success` (action) - Fires immediately after a user's age is successfully verified.
-* `agewallet_verified_cookie_attributes` (filter) - Modify the attributes (path, domain, expires, etc.) of the verification cookie.
-* `agewallet_final_redirect_url` (filter) - Modify the final URL the user is redirected to after successful verification.
-* `agewallet_before_render_success_page` (action) - Fires before the success page HTML is rendered, allowing for a complete override.
-
-= Gating Manager (class-agewallet-gating-manager.php) =
-* `agewallet_should_gate_request` (filter) - Override the final boolean decision on whether to gate the current page.
-* `agewallet_gate_script_data` (filter) - Modify the data array passed to the front-end `gate.js` script.
-* `agewallet_gate_template_args` (filter) - Modify the array of data used to build the age gate HTML.
-* `agewallet_after_gate_buttons` (action) - Add custom HTML content after the Agree/Disagree buttons on the gate.
-* `agewallet_meta_box_save` (action) - Fires when the age restriction setting is saved for a post or page.
-* `agewallet_meta_box_post_types` (filter) - Control which post types show the Age Restriction meta box.
-* `agewallet_template_include_priority` (filter) - Adjust the priority of the strict mode template interception (default: 99).
-* `agewallet_taxonomy_rules` (filter) - Modify the loaded array of taxonomy blocking rules before they are evaluated.
-
-= Strict Mode & Caching (class-agewallet-api.php & gatekeeper.php) =
-* `agewallet_skeleton_template` (filter) - Replace the `gatekeeper.php` template file entirely.
-* `agewallet_skeleton_head` (action) - Output custom tags in the &lt;head&gt; of the skeleton screen.
-* `agewallet_skeleton_content_after` (action) - Output content below the spinner on the loading screen.
-* `agewallet_skeleton_body_classes` (filter) - Add custom classes to the skeleton &lt;body&gt;.
-* `agewallet_skeleton_footer` (action) - Output custom tags before the closing &lt;/body&gt; tag.
-* `agewallet_cache_directory` (filter) - Change the physical path where HTML caches are stored.
-* `agewallet_loopback_url` (filter) - Modify the URL used by the cache builder (useful for specific proxy setups).
-* `agewallet_loopback_request_args` (filter) - Modify HTTP args (timeout, headers) for the cache build request.
-* `agewallet_api_content_response` (filter) - Modify the HTML content string before it is returned by the API to the frontend.
-* `agewallet_is_user_verified` (filter) - Master boolean override for server-side verification checks.
-* `agewallet_cache_invalidation_events` (filter) - Modify the list of WP actions that trigger a global cache purge.
-* `agewallet_before_cache_purge` (action) - Fires immediately before cache files are deleted (args: type, count/id).
-* `agewallet_after_cache_purge` (action) - Fires immediately after cache files are deleted.
-
-= WooCommerce (class-agewallet-woocommerce.php & class-agewallet-product-flags.php) =
-* `agewallet_wc_checkout_metadata` (filter) - Modify the per-checkout JSON metadata blob (cart hash, total, currency, line item count, billing country, etc.) before it is attached to the verification.
-* `agewallet_cart_has_regulated_items` (filter) - Override the boolean decision on whether the current WC cart contains items that should trigger the checkout gate in "Conditional on cart" mode. Useful for custom rules such as "regulated if cart total exceeds X" or "regulated if shipping to a specific country".
-* `agewallet_regulated_cart_triggers` (filter) - Modify the array of product IDs, category term IDs, and tag term IDs that triggered the regulated-cart check. Used both for the gating decision and for the cart_triggers audit field stored in metadata.
-
-= Public Helper Functions =
-* `agewallet_get_metadata()` - Returns the metadata value attached to the currently verified user's session as a string, or empty string if not available. Reads from the signed verification cookie payload.
-
-= Public PHP Methods =
-* `AgeWallet_WooCommerce::checkout_gating_mode()` - Returns the configured WC checkout-gate mode as a string: `'off'`, `'force-always'`, or `'conditional-on-cart'`.
-* `AgeWallet_WooCommerce::checkout_gating_enabled()` - Returns true when the checkout gate is enabled in any mode (force-always or conditional-on-cart).
-* `AgeWallet_WooCommerce::cart_contains_regulated_items()` - Returns true when the current WC cart contains at least one item flagged as regulated.
-* `AgeWallet_WooCommerce::get_regulated_triggers()` - Returns an associative array of product IDs, category term IDs, and tag term IDs that triggered the regulated-cart check.
-* `AgeWallet_WooCommerce::product_is_regulated( $product )` - Returns true when the given WC_Product (or its parent for variations) is flagged as regulated, either directly via the per-product status or inherited from its categories or tags.
-* `AgeWallet_WooCommerce::is_checkout_request()` - Returns true when the current request is the WooCommerce-configured checkout page.
-* `AgeWallet_WooCommerce::is_dynamic_wc_page()` - Returns true when the current request is a WooCommerce page that must never be served from the strict-mode cache (checkout, cart, my-account).
-
-= Post & Term Meta Keys =
-* `_agewallet_regulated_status` (post meta on `product`) - Per-product regulated status. Accepts `'not_regulated'` (default), `'regulated'`, or `'override_not_regulated'` (forces unregulated even when the product's category or tag is flagged).
-* `agewallet_regulated` (term meta on `product_cat` and `product_tag`) - When set to `'1'`, every product in this category or tag is treated as regulated for the WC checkout gate in "Conditional on cart" mode.
-* `_agewallet_force_restrict` (post meta) - When set to `'1'`, forces the age gate to fire on this single post regardless of global rules.
-* `_agewallet_force_exclude` (post meta) - When set to `'1'`, forces the age gate to be skipped on this single post regardless of global rules. Takes priority over `_agewallet_force_restrict`.
 
 == Screenshots ==
 

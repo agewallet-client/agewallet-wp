@@ -406,41 +406,41 @@ class AgeWallet_Admin {
 
 	public function render_usage_page() {
 		$this->render_page_wrapper( __( 'Usage Guide', 'agewallet-oidc-client' ), function() {
-			$content = $this->get_readme_section_content( 'Usage Guide' );
+			$content = $this->get_doc_content( 'usage-guide.md' );
 			if ( ! empty( $content ) ) {
 				echo wp_kses_post( $this->parse_readme_markdown( $content ) );
 			} else {
-				$this->render_readme_error( 'Usage Guide' );
+				$this->render_doc_error( 'usage-guide.md' );
 			}
 		});
 	}
 
 	public function render_hooks_page() {
 		$this->render_page_wrapper( __( 'Developer Hooks Guide', 'agewallet-oidc-client' ), function() {
-			$content = $this->get_readme_section_content( 'Developer Hooks' );
+			$content = $this->get_doc_content( 'developer-hooks.md' );
 			if ( ! empty( $content ) ) {
 				echo wp_kses_post( $this->parse_readme_markdown( $content ) );
 			} else {
-				$this->render_readme_error( 'Developer Hooks' );
+				$this->render_doc_error( 'developer-hooks.md' );
 			}
 		});
 	}
 
 	public function render_style_guide_page() {
 		$this->render_page_wrapper( __( 'CSS Customization Guide', 'agewallet-oidc-client' ), function() {
-			$content = $this->get_readme_section_content( 'CSS Customization Guide' );
+			$content = $this->get_doc_content( 'css-customization-guide.md' );
 			if ( ! empty( $content ) ) {
 				echo wp_kses_post( $this->parse_readme_markdown( $content ) );
 			} else {
-				$this->render_readme_error( 'CSS Customization Guide' );
+				$this->render_doc_error( 'css-customization-guide.md' );
 			}
 		});
 	}
 
-	private function render_readme_error( $section ) {
+	private function render_doc_error( $filename ) {
 		echo '<div class="notice notice-error"><p>';
-		/* translators: %s: Name of the readme.txt section that could not be located (e.g., "Description"). */
-		printf( esc_html__( 'Error: Could not find the "== %s ==" section in the readme.txt file.', 'agewallet-oidc-client' ), esc_html( $section ) );
+		/* translators: %s: Name of the documentation file that could not be read (e.g., "developer-hooks.md"). */
+		printf( esc_html__( 'Error: Could not read the documentation file "docs/%s".', 'agewallet-oidc-client' ), esc_html( $filename ) );
 		echo '</p></div>';
 	}
 
@@ -1142,23 +1142,28 @@ class AgeWallet_Admin {
 		return $clean;
 	}
 
-	// --- Readme Parsing ---
+	// --- Documentation Parsing ---
 
-	private function get_readme_section_content( $section_title ) {
-		$readme_path = AGEWALLET_PLUGIN_DIR . 'readme.txt';
-		if ( ! file_exists( $readme_path ) ) {
+	/**
+	 * Read a bundled guide from docs/.
+	 *
+	 * wordpress.org folds every unrecognised readme section into "Other Notes",
+	 * appends that to the Description, then trims the result to 2500 words — so
+	 * large reference guides kept in readme.txt silently truncated the listing
+	 * (and each other). They use readme markup, so parse_readme_markdown() renders
+	 * them unchanged.
+	 */
+	private function get_doc_content( $filename ) {
+		$doc_path = AGEWALLET_PLUGIN_DIR . 'docs/' . basename( $filename );
+		if ( ! file_exists( $doc_path ) ) {
 			return '';
 		}
-		$readme_content = file_get_contents( $readme_path );
-		$readme_content = str_replace( array( "\r\n", "\r" ), "\n", $readme_content );
-		if ( empty( $readme_content ) ) {
+		$doc_content = file_get_contents( $doc_path );
+		$doc_content = str_replace( array( "\r\n", "\r" ), "\n", $doc_content );
+		if ( empty( $doc_content ) ) {
 			return '';
 		}
-		$pattern = '/^==\s*' . preg_quote( $section_title, '/' ) . '\s*==\s*(.*?)(?=\n==\s*|\z)/sm';
-		if ( preg_match( $pattern, $readme_content, $matches ) ) {
-			return trim( $matches[1] );
-		}
-		return '';
+		return trim( $doc_content );
 	}
 
 	private function parse_readme_markdown( $content ) {
