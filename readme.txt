@@ -4,7 +4,7 @@ Tags: age verification, age estimation, age gate, woocommerce, content gating
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.6
+Stable tag: 1.5.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -141,6 +141,9 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 
 == Changelog ==
 
+= 1.5.7 =
+* Docs: Documentation improvements.
+
 = 1.5.6 =
 * Security: Improved script and style handling on the age-gate loading screen and post-verification handoff page.
 * Security: Hardened content escaping in the `[agewallet_protected]` shortcode.
@@ -209,6 +212,9 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 * Security: Hardened client-side script by adding click handlers dynamically instead of using inline attributes.
 
 == Upgrade Notice ==
+
+= 1.5.7 =
+Documentation improvements.
 
 = 1.5.6 =
 Improved security around script and style handling and shortcode content escaping. No functional changes for site owners.
