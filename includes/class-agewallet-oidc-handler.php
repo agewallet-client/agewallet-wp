@@ -487,17 +487,6 @@
              // HOOK: Allow custom actions when an OIDC error occurs.
              do_action('agewallet_oidc_error', $error, $error_description);
 
-             // Check for specific regional exemption
-             $region_exemption_desc = 'Region does not require verification'; // Use exact string from AgeWallet
-
-             // Note: $query_params already decoded '+' to space if parse_str did its job.
-             if ('access_denied' === $error && $error_description === $region_exemption_desc) {
-                 $this->log_debug('[OIDC Handler] Regional exemption detected. Treating as success.');
-                 // Proceed directly to Step 6 (Success Redirect Setup)
-                 $this->proceed_to_success($redirect_to, $nonce); // Pass nonce
-                 exit;
-             }
-
              // Handle other errors (User cancellation or other OIDC errors)
              if ('access_denied' === $error) {
                   if ('Verification failed' === $error_description) {
