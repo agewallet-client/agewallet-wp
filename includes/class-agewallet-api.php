@@ -187,6 +187,15 @@ class AgeWallet_API {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'missing_url' ), 400 );
 		}
 
+		// This endpoint only caches this site's own pages via a loopback request. Reject any
+		// URL that is not same-origin so the `url` param cannot be used to make the server
+		// fetch arbitrary internal or external hosts (SSRF).
+		$site_host   = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+		$target_host = strtolower( (string) wp_parse_url( $target_url, PHP_URL_HOST ) );
+		if ( '' === $target_host || $target_host !== $site_host ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'invalid_url' ), 400 );
+		}
+
 		// Generate MD5 Hash of the URL for the filename.
 		$url_hash = md5( $target_url );
 
@@ -303,7 +312,7 @@ class AgeWallet_API {
 		);
 		$args = apply_filters( 'agewallet_loopback_request_args', $args, $post_id );
 
-		$response = wp_remote_get( $url, $args );
+		$response = wp_safe_remote_get( $url, $args );
 
 		if ( is_wp_error( $response ) ) {
 			return $response;
