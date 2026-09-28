@@ -4,7 +4,7 @@ Tags: age verification, age estimation, age gate, woocommerce, content gating
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.7
+Stable tag: 1.5.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -141,6 +141,11 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 
 == Changelog ==
 
+= 1.5.8 =
+* Security: The WooCommerce checkout gate is now enforced server-side. Age verification is required for regulated checkouts placed through block-based checkout and express payment buttons (Apple Pay, Google Pay, PayPal), not only on the classic checkout page.
+* Security: The Strict-mode content endpoint now only fetches this site's own pages, so the internal loopback request cannot be pointed at another host.
+* Security: Removed an obsolete verification-callback code path in the OIDC handler.
+
 = 1.5.7 =
 * Docs: Documentation improvements.
 
@@ -212,6 +217,9 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 * Security: Hardened client-side script by adding click handlers dynamically instead of using inline attributes.
 
 == Upgrade Notice ==
+
+= 1.5.8 =
+Security release: the WooCommerce checkout gate is now enforced server-side, closing a gap where block-based or express-pay checkouts could complete a regulated order without age verification. Recommended for all WooCommerce users.
 
 = 1.5.7 =
 Documentation improvements.
