@@ -45,6 +45,81 @@ if ( ! class_exists( 'AgeWallet_WooCommerce' ) ) {
 
 		private function __construct() {
 			add_filter( 'agewallet_metadata', array( $this, 'inject_checkout_metadata' ) );
+
+			// Server-side enforcement of the checkout gate. The page-level overlay only
+			// covers the rendered checkout page; these hooks also cover the Store API
+			// (block checkout) and express-pay buttons (Apple Pay / Google Pay / PayPal),
+			// which place orders without ever loading the checkout page.
+			add_action( 'woocommerce_check_cart_items', array( $this, 'block_unverified_checkout' ) );
+			add_filter( 'woocommerce_checkout_create_order_line_item_object', array( $this, 'guard_unverified_order_line' ), 5, 4 );
+		}
+
+		/**
+		 * True when the current cart must be age-verified before it can be ordered, and the
+		 * visitor is not yet verified. Mirrors the page-gate decision in the gating manager:
+		 *   - off                 → never
+		 *   - force-always        → any non-empty cart
+		 *   - conditional-on-cart → only when the cart holds a regulated item
+		 */
+		public static function cart_requires_verification() {
+			$mode = self::checkout_gating_mode();
+			if ( AgeWalletOIDCClientPro::WC_GATE_MODE_OFF === $mode ) {
+				return false;
+			}
+			if ( ! function_exists( 'WC' ) || ! WC()->cart || WC()->cart->is_empty() ) {
+				return false;
+			}
+			if ( self::visitor_is_verified() ) {
+				return false;
+			}
+			if ( AgeWalletOIDCClientPro::WC_GATE_MODE_FORCE_ALWAYS === $mode ) {
+				return true;
+			}
+			// conditional-on-cart
+			return self::cart_contains_regulated_items();
+		}
+
+		/**
+		 * True if the visitor holds a valid (HMAC + unexpired) verification cookie.
+		 * Uses the same signed-cookie check as the page gate.
+		 */
+		private static function visitor_is_verified() {
+			return class_exists( 'AgeWallet_Helpers' )
+				&& null !== AgeWallet_Helpers::instance()->get_verified_cookie_payload();
+		}
+
+		/**
+		 * woocommerce_check_cart_items: fires in both classic checkout validation and the
+		 * Store API cart validation (block checkout / express-pay). Adds a blocking error
+		 * when the cart needs verification. Skipped on the cart page so it doesn't nag
+		 * before the shopper reaches checkout.
+		 */
+		public function block_unverified_checkout() {
+			if ( function_exists( 'is_cart' ) && is_cart() ) {
+				return;
+			}
+			if ( self::cart_requires_verification() ) {
+				wc_add_notice( __( 'Age verification required before you can place this order.', 'agewallet-oidc-client' ), 'error' );
+			}
+		}
+
+		/**
+		 * woocommerce_checkout_create_order_line_item_object: last-resort backstop for order
+		 * creation paths that skip cart validation (e.g. PayPal express with final review
+		 * disabled). Throwing here aborts the order before it is placed. Does not fire for
+		 * admin-created or subscription-renewal orders, which use different creation paths.
+		 *
+		 * @param mixed  $item
+		 * @param string $cart_item_key
+		 * @param array  $values
+		 * @param mixed  $order
+		 * @return mixed
+		 */
+		public function guard_unverified_order_line( $item, $cart_item_key, $values, $order ) {
+			if ( self::cart_requires_verification() ) {
+				throw new Exception( esc_html__( 'Age verification required before you can place this order.', 'agewallet-oidc-client' ) );
+			}
+			return $item;
 		}
 
 		/**
