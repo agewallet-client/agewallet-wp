@@ -60,23 +60,25 @@ This plugin includes a number of action and filter hooks to allow for advanced c
 
 = WooCommerce (class-agewallet-woocommerce.php & class-agewallet-product-flags.php) =
 * `agewallet_wc_checkout_metadata` (filter) - Modify the per-checkout JSON metadata blob (cart hash, total, currency, line item count, billing country, etc.) before it is attached to the verification.
-* `agewallet_cart_has_regulated_items` (filter) - Override the boolean decision on whether the current WC cart contains items that should trigger the checkout gate in "Conditional on cart" mode. Useful for custom rules such as "regulated if cart total exceeds X" or "regulated if shipping to a specific country".
+* `agewallet_cart_has_regulated_items` (filter) - Override the boolean decision on whether the current WC cart contains regulated items, for the checkout check in "Conditional on cart" mode. It does not affect the add-to-cart rule, which reads each product's own status and its categories and tags (see `AgeWallet_WooCommerce::product_is_regulated()`). Useful for custom rules such as "regulated if cart total exceeds X" or "regulated if shipping to a specific country".
 * `agewallet_regulated_cart_triggers` (filter) - Modify the array of product IDs, category term IDs, and tag term IDs that triggered the regulated-cart check. Used both for the gating decision and for the cart_triggers audit field stored in metadata.
 
 = Public Helper Functions =
 * `agewallet_get_metadata()` - Returns the metadata value attached to the currently verified user's session as a string, or empty string if not available. Reads from the signed verification cookie payload.
 
 = Public PHP Methods =
-* `AgeWallet_WooCommerce::checkout_gating_mode()` - Returns the configured WC checkout-gate mode as a string: `'off'`, `'force-always'`, or `'conditional-on-cart'`.
-* `AgeWallet_WooCommerce::checkout_gating_enabled()` - Returns true when the checkout gate is enabled in any mode (force-always or conditional-on-cart).
+* `AgeWallet_WooCommerce::checkout_gating_mode()` - Returns the configured WC Checkout gating mode as a string: `'off'`, `'force-always'`, or `'conditional-on-cart'`.
+* `AgeWallet_WooCommerce::checkout_gating_enabled()` - Returns true when Checkout gating is on in any mode (force-always or conditional-on-cart).
+* `AgeWallet_WooCommerce::product_requires_verification( $product )` - Returns true when buying the product needs age verification: Checkout gating is on, and it's Force always or the product is regulated.
+* `AgeWallet_WooCommerce::visitor_is_verified()` - Returns true when the current request carries a valid (signed, unexpired) verification cookie.
 * `AgeWallet_WooCommerce::cart_contains_regulated_items()` - Returns true when the current WC cart contains at least one item flagged as regulated.
 * `AgeWallet_WooCommerce::get_regulated_triggers()` - Returns an associative array of product IDs, category term IDs, and tag term IDs that triggered the regulated-cart check.
 * `AgeWallet_WooCommerce::product_is_regulated( $product )` - Returns true when the given WC_Product (or its parent for variations) is flagged as regulated, either directly via the per-product status or inherited from its categories or tags.
 * `AgeWallet_WooCommerce::is_checkout_request()` - Returns true when the current request is the WooCommerce-configured checkout page.
-* `AgeWallet_WooCommerce::is_dynamic_wc_page()` - Returns true when the current request is a WooCommerce page that must never be served from the strict-mode cache (checkout, cart, my-account).
+* `AgeWallet_WooCommerce::is_dynamic_wc_page()` - Returns true for WooCommerce pages, which always use Standard mode even when Strict mode is on (shop, products, product categories and tags, cart, checkout, account, and pages with WooCommerce product blocks or shortcodes).
 
 = Post & Term Meta Keys =
 * `_agewallet_regulated_status` (post meta on `product`) - Per-product regulated status. Accepts `'not_regulated'` (default), `'regulated'`, or `'override_not_regulated'` (forces unregulated even when the product's category or tag is flagged).
-* `agewallet_regulated` (term meta on `product_cat` and `product_tag`) - When set to `'1'`, every product in this category or tag is treated as regulated for the WC checkout gate in "Conditional on cart" mode.
-* `_agewallet_force_restrict` (post meta) - When set to `'1'`, forces the age gate to fire on this single post regardless of global rules.
+* `agewallet_regulated` (term meta on `product_cat` and `product_tag`) - When set to `'1'`, every product in this category or tag is treated as regulated: in "Conditional on cart" mode, shoppers must verify their age before they can buy it.
+* `_agewallet_force_restrict` (post meta) - When set to `'1'`, forces the age gate onto this single post, page or product regardless of global rules. Controls viewing only; it doesn't make a product regulated for buying.
 * `_agewallet_force_exclude` (post meta) - When set to `'1'`, forces the age gate to be skipped on this single post regardless of global rules. Takes priority over `_agewallet_force_restrict`.

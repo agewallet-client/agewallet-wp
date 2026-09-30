@@ -2,7 +2,7 @@ Use this guide to customize the appearance of the AgeWallet™ age gate and the 
 
 For most customizations, the colour and radius controls in Step 3: Gate Appearance are sufficient — they map directly to the CSS custom properties listed in the next subsection.
 
-For anything beyond that (custom fonts, site-wide rules, advanced selectors, hover states not exposed in the form), add your rules in **Appearance → Customize → Additional CSS**. AgeWallet applies that CSS to the gate on both Standard and Strict modes. The gate exposes a stable DOM with the `.aw-gate__*` and `.agewallet-*` class names below — write rules against them as you would for any theme component.
+For anything beyond that (custom fonts, site-wide rules, advanced selectors, hover states not exposed in the form), add your rules in **Appearance → Customize → Additional CSS**. AgeWallet applies that CSS to the gate on both Standard and Strict modes. The gate exposes a stable DOM with class names starting `.aw-gate__` and `.agewallet-`, listed below — write rules against them as you would for any theme component.
 
 = CSS custom properties (set by the Gate Appearance form) =
 
@@ -82,6 +82,19 @@ Useful for adding margins.
 * `.agewallet-protected-placeholder` - The placeholder box shown to unverified users, contains the gate prompt.
 Controls borders, background, and padding.
 
+= 8. WooCommerce: Verify to buy =
+
+* `.agewallet-verify-to-buy` - The notice shown in place of a product's add-to-cart area until the shopper verifies their age.
+Controls borders, background, and padding.
+
+* `.agewallet-verify-to-buy__text` - The notice text ("Age verification is required before you can buy this item.").
+
+* `.agewallet-verify-to-buy__btn` - The "Verify my age" button.
+
+* `.agewallet-verify-to-buy__note` - The small consent line under the button.
+
+* `.agewallet-buy-area` - Wraps the product's add-to-cart area (and any express payment buttons inside it). Hidden until the shopper has verified.
+
 = Customization Tips =
 
 For colour and radius tweaks, the Gate Appearance form is the easiest path. For anything else, paste your CSS into **Appearance → Customize → Additional CSS**:
@@ -93,6 +106,6 @@ For colour and radius tweaks, the Gate Appearance form is the easiest path. For 
 }
 `
 
-Customizer CSS targets the gate's `.aw-gate__*` and `.agewallet-*` classes in both Standard and Strict modes — no plugin setting required.
+Customizer CSS targets the gate's classes (those starting `.aw-gate__` and `.agewallet-`) in both Standard and Strict modes — no plugin setting required.
 
 Use your browser's developer tools (Inspect Element) to preview your changes live.

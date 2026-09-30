@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin UI for the regulated-status flags that drive the WC checkout-gate
+ * Admin UI for the regulated-status flags that decide which WC products need age verification to buy
  * conditional-on-cart mode.
  *
  * Adds:
@@ -101,6 +101,7 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 						<label><?php esc_html_e( 'Regulated status', 'agewallet-oidc-client' ); ?></label>
 						<span class="description" style="display:block; margin-left:0;">
 							<?php esc_html_e( 'Controls whether shoppers must verify their age before they can buy this product, when checkout gating is set to "Conditional on cart".', 'agewallet-oidc-client' ); ?>
+							<?php esc_html_e( 'This controls buying only. Who can view the product\'s page is set in the Age Restriction box in the sidebar.', 'agewallet-oidc-client' ); ?>
 						</span>
 					</p>
 					<?php foreach ( $options as $value => $entry ) : ?>
@@ -146,7 +147,7 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 			<div class="form-field">
 				<label for="agewallet_regulated">
 					<input type="checkbox" name="<?php echo esc_attr( AgeWallet_WooCommerce::META_KEY_TERM_REGULATED ); ?>" id="agewallet_regulated" value="1" />
-					<?php esc_html_e( 'Regulated for AgeWallet checkout gate', 'agewallet-oidc-client' ); ?>
+					<?php esc_html_e( 'Regulated: shoppers must verify their age to buy (AgeWallet)', 'agewallet-oidc-client' ); ?>
 				</label>
 				<p><?php esc_html_e( 'When AgeWallet\'s checkout gating is set to "Conditional on cart", shoppers must verify their age before they can buy any product in this term. Clear your page cache after changing this, so product pages pick it up.', 'agewallet-oidc-client' ); ?></p>
 			</div>
@@ -162,7 +163,7 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 			<tr class="form-field">
 				<th scope="row" valign="top">
 					<label for="agewallet_regulated">
-						<?php esc_html_e( 'Regulated for AgeWallet checkout gate', 'agewallet-oidc-client' ); ?>
+						<?php esc_html_e( 'Regulated: shoppers must verify their age to buy (AgeWallet)', 'agewallet-oidc-client' ); ?>
 					</label>
 				</th>
 				<td>

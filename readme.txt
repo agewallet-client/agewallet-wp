@@ -26,7 +26,7 @@ Multiple age-assurance methods are supported, so you can meet age-restriction re
 
 = Built for WooCommerce =
 
-WooCommerce is supported out of the box: three checkout-gate modes plus per-product / per-category regulated flagging, so age-restricted items require age verification before checkout while the rest of your catalog stays open.
+WooCommerce is supported out of the box: three Checkout gating modes plus per-product / per-category regulated flagging, so age-restricted items can't be bought until the shopper verifies their age, while the rest of your catalog stays open.
 
 = Flexible age-gate rules =
 
@@ -91,7 +91,7 @@ Yes. Mark products as regulated (per product, per category, or per tag), and sho
 
 = How do I customize the look of the gate? =
 
-Upload your logo, customize the headline and body copy via the WYSIWYG editor, and override CSS through the Custom CSS field on the Gate Appearance settings tab. See the in-dashboard Plugin Guide page for the full list of CSS classes.
+Upload your logo, customize the headline and body copy via the WYSIWYG editor, and set the colours and corner radius on the Gate Appearance settings page. For anything else, add CSS in Appearance → Customize → Additional CSS; the AgeWallet → CSS Guide page lists the gate's CSS classes.
 
 = Does the plugin store any personal data about my visitors? =
 
@@ -122,7 +122,7 @@ Deleting the plugin from the Plugins screen runs `uninstall.php`, which removes 
     * Per-post overrides via the editor sidebar.
     * Inline `[agewallet_protected]` shortcode for specific page elements.
 * WooCommerce integration:
-    * Three checkout-gate modes: Off, Force Always, Conditional on Cart.
+    * Three Checkout gating modes: Off, Force Always (verify before buying anything), Conditional on Cart (verify before buying regulated products).
     * Age-restricted products can't be bought until the shopper verifies: their add-to-cart area (express payment buttons included) is replaced by a Verify my age button, and WooCommerce refuses to add them to any cart until then.
     * Per-product regulated controls: Not Regulated / Regulated / Override.
     * Per-category and per-tag regulated flagging on the term-edit screens (products inherit from any of their categories or tags).

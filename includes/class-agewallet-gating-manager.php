@@ -1028,7 +1028,7 @@ class AgeWallet_Gating_Manager {
 					<?php echo ( '1' === $force_exclude ) ? 'disabled="disabled"' : ''; ?> />
 				<?php esc_html_e( 'Require age verification', 'agewallet-oidc-client' ); ?>
 			</label><br>
-			<small><?php esc_html_e( "(Overrides Global 'None' setting)", 'agewallet-oidc-client' ); ?></small>
+			<small><?php esc_html_e( 'Visitors must verify their age to view this page, even if nothing else protects it.', 'agewallet-oidc-client' ); ?></small>
 		</p>
 		<hr style="margin: 10px 0;">
 		<p>
@@ -1037,9 +1037,12 @@ class AgeWallet_Gating_Manager {
 					<?php checked( $force_exclude, '1' ); ?> />
 				<?php esc_html_e( 'Exclude from age verification', 'agewallet-oidc-client' ); ?>
 			</label><br>
-			<small><?php esc_html_e( "(Overrides ALL Global settings)", 'agewallet-oidc-client' ); ?></small>
+			<small><?php esc_html_e( 'Anyone can view this page, whatever your other rules say.', 'agewallet-oidc-client' ); ?></small>
 		</p>
-		<p><small><?php esc_html_e( 'Note: If "Exclude" is checked, "Require" will be ignored.', 'agewallet-oidc-client' ); ?></small></p>
+		<p><small><?php esc_html_e( 'If both are ticked, Exclude wins.', 'agewallet-oidc-client' ); ?></small></p>
+		<?php if ( 'product' === $post->post_type ) : ?>
+			<p><small><?php esc_html_e( 'This box controls who can view the page. Whether the product can be bought before verifying is set in Product data → AgeWallet.', 'agewallet-oidc-client' ); ?></small></p>
+		<?php endif; ?>
 		<?php
 		// Mutual-exclusion toggle behaviour is enqueued via enqueue_post_restriction_script()
 		// (assets/js/post-restriction.js) on post.php / post-new.php.

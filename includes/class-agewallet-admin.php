@@ -447,7 +447,7 @@ class AgeWallet_Admin {
 	// --- Field Rendering Callbacks ---
 
 	public function render_guarding_section_description() {
-		echo '<p>' . esc_html__( 'Choose how site content should be protected. Users with "edit_posts" capability (e.g., Administrators, Editors) bypass the gate.', 'agewallet-oidc-client' ) . '</p>';
+		echo '<p>' . esc_html__( 'Choose how site content should be protected. Administrators and editors bypass the gate.', 'agewallet-oidc-client' ) . '</p>';
 	}
 
 	public function render_metadata_section_description() {
@@ -560,7 +560,7 @@ class AgeWallet_Admin {
 	}
 
 	public function render_wc_section_description() {
-		echo '<p>' . esc_html__( 'Optional rule for the WooCommerce checkout page. When enabled, customers must complete age verification before they can pay. Per-checkout context (cart hash, total, etc.) is attached to the verification as metadata.', 'agewallet-oidc-client' ) . '</p>';
+		echo '<p>' . esc_html__( 'Choose which products shoppers must verify their age to buy. Until they verify, those products can\'t be added to the cart, and their add-to-cart area, express payment buttons included, is replaced by a Verify my age button. Per-checkout context (cart hash, total, etc.) is attached to the verification as metadata.', 'agewallet-oidc-client' ) . '</p>';
 		echo '<p class="description">' . esc_html__( 'Use the `agewallet_wc_checkout_metadata` filter to fully customise the metadata payload from code.', 'agewallet-oidc-client' ) . '</p>';
 	}
 
@@ -703,15 +703,15 @@ class AgeWallet_Admin {
 
 		$modes = array(
 			AgeWalletOIDCClientPro::WC_GATE_MODE_OFF              => array(
-				'label' => __( 'Off — no checkout-specific gating', 'agewallet-oidc-client' ),
-				'desc'  => __( 'The general gating rules (Block mode, paths, taxonomy) apply unchanged.', 'agewallet-oidc-client' ),
+				'label' => __( 'Off — no purchase rule', 'agewallet-oidc-client' ),
+				'desc'  => __( 'Products can be bought without verifying. Your page protection rules (scope, paths, taxonomies) still apply as normal.', 'agewallet-oidc-client' ),
 			),
 			AgeWalletOIDCClientPro::WC_GATE_MODE_FORCE_ALWAYS     => array(
-				'label' => __( 'Force always — gate every checkout', 'agewallet-oidc-client' ),
+				'label' => __( 'Force always — verify before buying any product', 'agewallet-oidc-client' ),
 				'desc'  => __( 'Shoppers must verify their age before they can buy any product, and every visit to the checkout page requires verification.', 'agewallet-oidc-client' ),
 			),
 			AgeWalletOIDCClientPro::WC_GATE_MODE_CONDITIONAL_CART => array(
-				'label' => __( 'Conditional on cart — gate only when cart contains regulated items', 'agewallet-oidc-client' ),
+				'label' => __( 'Conditional on cart — verify before buying regulated products', 'agewallet-oidc-client' ),
 				'desc'  => __( 'Flag products, categories, or tags as regulated (see Products → individual product or Products → Categories/Tags). Shoppers must verify their age before they can buy a regulated product: until they do, its add-to-cart area, express payment buttons included, is replaced by a Verify my age button.', 'agewallet-oidc-client' ),
 			),
 		);
