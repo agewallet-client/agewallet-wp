@@ -83,11 +83,11 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 			$options = array(
 				'not_regulated'          => array(
 					'label' => __( 'Not regulated', 'agewallet-oidc-client' ),
-					'desc'  => __( 'This product does not require age verification at checkout.', 'agewallet-oidc-client' ),
+					'desc'  => __( 'This product does not require age verification to buy.', 'agewallet-oidc-client' ),
 				),
 				'regulated'              => array(
 					'label' => __( 'Regulated', 'agewallet-oidc-client' ),
-					'desc'  => __( 'This product is regulated — when the AgeWallet checkout-gate is set to "Conditional on cart", a cart containing this product will fire the age verification gate.', 'agewallet-oidc-client' ),
+					'desc'  => __( 'When checkout gating is set to "Conditional on cart", shoppers must verify their age before they can buy this product. Until they do, its add-to-cart area, express payment buttons included, is replaced by a Verify my age button.', 'agewallet-oidc-client' ),
 				),
 				'override_not_regulated' => array(
 					'label' => __( 'Override — explicitly not regulated', 'agewallet-oidc-client' ),
@@ -100,7 +100,7 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 					<p class="form-field">
 						<label><?php esc_html_e( 'Regulated status', 'agewallet-oidc-client' ); ?></label>
 						<span class="description" style="display:block; margin-left:0;">
-							<?php esc_html_e( 'Controls whether a cart containing this product triggers the AgeWallet checkout gate when the gate is set to "Conditional on cart" mode.', 'agewallet-oidc-client' ); ?>
+							<?php esc_html_e( 'Controls whether shoppers must verify their age before they can buy this product, when checkout gating is set to "Conditional on cart".', 'agewallet-oidc-client' ); ?>
 						</span>
 					</p>
 					<?php foreach ( $options as $value => $entry ) : ?>
@@ -148,7 +148,7 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 					<input type="checkbox" name="<?php echo esc_attr( AgeWallet_WooCommerce::META_KEY_TERM_REGULATED ); ?>" id="agewallet_regulated" value="1" />
 					<?php esc_html_e( 'Regulated for AgeWallet checkout gate', 'agewallet-oidc-client' ); ?>
 				</label>
-				<p><?php esc_html_e( 'When AgeWallet\'s checkout-gate is set to "Conditional on cart", any cart containing a product in this term will trigger age verification.', 'agewallet-oidc-client' ); ?></p>
+				<p><?php esc_html_e( 'When AgeWallet\'s checkout gating is set to "Conditional on cart", shoppers must verify their age before they can buy any product in this term. Clear your page cache after changing this, so product pages pick it up.', 'agewallet-oidc-client' ); ?></p>
 			</div>
 			<?php
 		}
@@ -167,7 +167,7 @@ if ( ! class_exists( 'AgeWallet_Product_Flags' ) ) {
 				</th>
 				<td>
 					<input type="checkbox" name="<?php echo esc_attr( AgeWallet_WooCommerce::META_KEY_TERM_REGULATED ); ?>" id="agewallet_regulated" value="1" <?php checked( '1', $checked ); ?> />
-					<p class="description"><?php esc_html_e( 'When AgeWallet\'s checkout-gate is set to "Conditional on cart", any cart containing a product in this term will trigger age verification.', 'agewallet-oidc-client' ); ?></p>
+					<p class="description"><?php esc_html_e( 'When AgeWallet\'s checkout gating is set to "Conditional on cart", shoppers must verify their age before they can buy any product in this term. Clear your page cache after changing this, so product pages pick it up.', 'agewallet-oidc-client' ); ?></p>
 				</td>
 			</tr>
 			<?php

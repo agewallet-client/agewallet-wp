@@ -87,7 +87,7 @@ Yes. Standard (Overlay) mode is fully cache-compatible — the page HTML is the 
 
 = Does it work with WooCommerce? =
 
-Yes. The plugin integrates with WooCommerce checkout. You can gate every checkout, gate only when the cart contains regulated items, or leave checkout ungated. Regulated status can be set per-product, per-category, or per-tag.
+Yes. Mark products as regulated (per product, per category, or per tag), and shoppers must verify their age before they can buy them: the product's add-to-cart area, express payment buttons included, is replaced by a Verify my age button until they do, and WooCommerce refuses to add the product to any cart. Force Always applies this to every product. Payment plugins that place orders through WooCommerce's checkout, and those that build orders themselves, are refused for unverified shoppers.
 
 = How do I customize the look of the gate? =
 
@@ -123,6 +123,7 @@ Deleting the plugin from the Plugins screen runs `uninstall.php`, which removes 
     * Inline `[agewallet_protected]` shortcode for specific page elements.
 * WooCommerce integration:
     * Three checkout-gate modes: Off, Force Always, Conditional on Cart.
+    * Age-restricted products can't be bought until the shopper verifies: their add-to-cart area (express payment buttons included) is replaced by a Verify my age button, and WooCommerce refuses to add them to any cart until then.
     * Per-product regulated controls: Not Regulated / Regulated / Override.
     * Per-category and per-tag regulated flagging on the term-edit screens (products inherit from any of their categories or tags).
     * Cart-context metadata (cart hash, total, currency, line-item count, billing country) automatically attached to verifications. In Conditional-on-Cart mode, a cart_triggers audit trail captures which products / categories / tags fired the gate.
@@ -142,7 +143,10 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 == Changelog ==
 
 = 1.5.8 =
-* Security: The WooCommerce checkout gate is now enforced server-side. Age verification is required for regulated checkouts placed through block-based checkout and express payment buttons (Apple Pay, Google Pay, PayPal), not only on the classic checkout page.
+* Security: WooCommerce age-restricted products can no longer be bought before age verification, by any route. Until the shopper verifies, a regulated product can't be added to the cart (WooCommerce's own purchasability rule, including the cart API and payment plugins' express buttons), and its add-to-cart area, express payment buttons included, is replaced by a Verify my age button. Checkout validation and a backstop for payment plugins that build orders themselves also refuse unverified regulated orders.
+* Change: in Force Always mode, shoppers now verify before they can buy any product, not only at checkout.
+* Change: WooCommerce pages (shop, products, product categories and tags, cart, checkout, account, and pages with WooCommerce product blocks or shortcodes) always use Standard mode, so shoppers' carts and WooCommerce messages work as normal.
+* Note: clear your page cache once after updating, so cached product pages pick up the new add-to-cart area.
 * Security: The Strict-mode content endpoint now only fetches this site's own pages, so the internal loopback request cannot be pointed at another host.
 * Security: Removed an obsolete verification-callback code path in the OIDC handler.
 
@@ -219,7 +223,7 @@ This plugin is licensed under the GNU General Public License v2.0 or later. A co
 == Upgrade Notice ==
 
 = 1.5.8 =
-Security release: the WooCommerce checkout gate is now enforced server-side, closing a gap where block-based or express-pay checkouts could complete a regulated order without age verification. Recommended for all WooCommerce users.
+Security release: age-restricted WooCommerce products can no longer be bought before age verification, including through block checkout and express payment buttons. Clear your page cache once after updating. Recommended for all WooCommerce users.
 
 = 1.5.7 =
 Documentation improvements.

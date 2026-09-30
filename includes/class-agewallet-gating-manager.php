@@ -326,13 +326,13 @@ class AgeWallet_Gating_Manager {
 			return $template;
 		}
 
-		// 4a. Strict-mode safety rail: never substitute a skeleton for dynamic WC pages.
-		// The strict-mode cache stores the cookieless-loopback HTML keyed only by URL,
-		// so caching /checkout/, /cart/, or /my-account/ would either render an empty
-		// cart or leak one customer's HTML to another. Fall back to the normal template
-		// so WC renders the live page; the gate JS still draws the overlay on top.
+		// 4a. WooCommerce pages always use Standard mode. The strict-mode cache stores the
+		// cookieless-loopback HTML keyed only by URL, so it can't hold a shopper's cart, their
+		// WooCommerce messages or anything else that belongs to them (and caching cart, checkout
+		// or account pages would leak one customer's HTML to another). Fall back to the normal
+		// template so WC renders the live page; the gate JS still draws the overlay on top.
 		if ( class_exists( 'AgeWallet_WooCommerce' ) && AgeWallet_WooCommerce::is_dynamic_wc_page() ) {
-			$this->log_debug( 'Template Intercept: Bypassing skeleton for dynamic WC page (checkout/cart/account).' );
+			$this->log_debug( 'Template Intercept: WooCommerce page, using Standard mode (live page + overlay).' );
 			return $template;
 		}
 

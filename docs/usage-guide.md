@@ -46,19 +46,21 @@ E. WooCommerce (visible when WooCommerce is active)
 
 The Content Guarding page shows a "WooCommerce" section below the Taxonomy Rules. The plugin also adds an "AgeWallet" tab to the Product Data metabox and a checkbox to the term-edit screens for Categories and Tags.
 
-* Checkout Gating: chooses how the checkout page itself is gated.
-    * Off: no checkout-specific rule; the Security Mode / Block / Path / Taxonomy rules apply unchanged.
-    * Force Always: every visit to the checkout page requires age verification, regardless of other rules.
-    * Conditional on Cart: the checkout requires verification only when the cart contains at least one product flagged as regulated AND the visitor isn't already verified. Useful for mixed-catalog stores where only some products require age gating.
+* Checkout Gating: chooses which products shoppers must verify their age to buy.
+    * Off: no purchase rule; the Security Mode / Block / Path / Taxonomy rules apply unchanged.
+    * Force Always: shoppers must verify before they can buy any product, and every visit to the checkout page requires verification.
+    * Conditional on Cart: shoppers must verify before they can buy a product flagged as regulated. Useful for mixed-catalog stores where only some products require age gating.
+
+    For a product that needs verification, until the shopper verifies: its add-to-cart area (including any express payment buttons, such as PayPal, Apple Pay or Google Pay) is replaced by a "Verify my age" button that starts verification and brings them back to the product; WooCommerce refuses to add it to any cart, by any route; and checkout refuses any order containing it. After verifying, the product can be bought as normal. Product pages stay the same for every visitor, so page caching keeps working; clear your page cache once after updating the plugin.
 
 * Checkout Metadata Fields: pick which cart-context values get attached to each verification as metadata that round-trips through the OIDC flow back to your backend. Available fields: cart hash, cart total, currency code, WordPress user ID, billing country, number of line items. Defaults: cart hash, cart total, currency. Use the `agewallet_wc_checkout_metadata` filter (see Developer Hooks) for fully custom payloads.
 
 * Per-Product Regulated Status: open any product in WooCommerce > Products > Edit Product > AgeWallet tab.
-    * Not regulated (default): does NOT trigger the Conditional-on-Cart gate.
-    * Regulated: cart containing this product fires the Conditional-on-Cart gate.
+    * Not regulated (default): follows the product's categories and tags.
+    * Regulated: shoppers must verify their age before they can buy this product (Conditional on Cart).
     * Override — explicitly not regulated: forces this product to bypass the gate even when one of its categories or tags is flagged regulated. Useful for an edge product inside an otherwise-regulated category.
 
-* Per-Category / Per-Tag Regulated Flag: on the term-edit screens (Products > Categories or Products > Tags), check "Regulated for AgeWallet checkout gate". Products inherit the regulated flag from any of their categories or tags (unless overridden per-product).
+* Per-Category / Per-Tag Regulated Flag: on the term-edit screens (Products > Categories or Products > Tags), check "Regulated for AgeWallet checkout gate". Products inherit the regulated flag from any of their categories or tags (unless overridden per-product). Clear your page cache after changing it.
 
 = 3. Customizing the Gate Appearance (Step 3) =
 
