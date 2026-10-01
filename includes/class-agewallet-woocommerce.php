@@ -352,16 +352,16 @@ if ( ! class_exists( 'AgeWallet_WooCommerce' ) ) {
 
 		/**
 		 * Prints the verify notice: the text, and a Verify my age button that posts to the launch
-		 * address (as the gate's I Agree button does) and brings the visitor back to $return_url.
+		 * address with the same metadata as the gate's I Agree button, and brings the visitor back to $return_url.
 		 *
 		 * @param string $text       The notice text.
 		 * @param string $return_url Where the visitor comes back to.
 		 */
 		public static function render_notice( $text, $return_url ) {
-			if ( ! class_exists( 'AgeWallet_Helpers' ) ) {
+			if ( ! class_exists( 'AgeWallet_Gating_Manager' ) || ! class_exists( 'AgeWallet_Helpers' ) ) {
 				return;
 			}
-			$launch = add_query_arg( 'redirect_to', rawurlencode( $return_url ), AgeWallet_Helpers::instance()->get_launch_url() );
+			$launch = AgeWallet_Gating_Manager::get_verify_url( $return_url );
 			?>
 			<div class="agewallet-verify-to-buy" style="margin:12px 0;padding:12px 14px;border:1px solid currentColor;border-radius:6px;">
 				<p class="agewallet-verify-to-buy__text" style="margin:0 0 8px;"><?php echo esc_html( $text ); ?></p>

@@ -855,6 +855,39 @@ class AgeWallet_Gating_Manager {
 	}
 
 	/**
+	 * The address every Verify / I Agree button sends the visitor to: the launch address, the page
+	 * to come back to, and the signed metadata and origin marker for the current page. Built while
+	 * WordPress has the page's context, so it carries the same values wherever the button is.
+	 *
+	 * @param string $return_url Where the visitor comes back to after verifying.
+	 * @return string The launch URL, or '' if it can't be determined.
+	 */
+	public static function get_verify_url( $return_url ) {
+		$launch_url = AgeWallet_Helpers::instance()->get_launch_url();
+		if ( ! $launch_url ) {
+			return '';
+		}
+		$url = add_query_arg( 'redirect_to', urlencode( $return_url ), $launch_url );
+
+		// Sign the metadata so handle_launch() can trust the value despite it riding in a URL.
+		if ( class_exists( 'AgeWallet_Metadata_Builder' ) ) {
+			$md_value = AgeWallet_Metadata_Builder::build();
+			if ( is_string( $md_value ) && '' !== $md_value ) {
+				$url = add_query_arg( 'agewallet_md', urlencode( AgeWallet_Helpers::instance()->sign_metadata( $md_value ) ), $url );
+			}
+		}
+
+		// Mark checkout-origin so handle_launch() knows to attach WC cart-context metadata at
+		// click-time. The marker rides as a separate signed query param so it stays out of the
+		// final metadata payload stored against the verification.
+		if ( class_exists( 'AgeWallet_WooCommerce' ) && AgeWallet_WooCommerce::is_checkout_request() ) {
+			$url = add_query_arg( 'agewallet_origin', urlencode( AgeWallet_Helpers::instance()->sign_metadata( 'checkout' ) ), $url );
+		}
+
+		return $url;
+	}
+
+	/**
 	 * Generates the HTML markup for the age gate prompt.
 	 * @since 0.1.0
 	 * @access public
@@ -875,27 +908,7 @@ class AgeWallet_Gating_Manager {
 			$desc_html    = '<p>' . esc_html( $default_copy ) . '</p>';
 		}
 
-		$current_url = AgeWallet_Helpers::instance()->get_current_url();
-		$launch_url  = AgeWallet_Helpers::instance()->get_launch_url();
-		$agree_href  = $launch_url ? add_query_arg( 'redirect_to', urlencode( $current_url ), $launch_url ) : '';
-
-		// Compute metadata here — we have the correct WP context for the gated page.
-		// Sign it so handle_launch() can trust the value despite it riding in a URL.
-		if ( $agree_href && class_exists( 'AgeWallet_Metadata_Builder' ) ) {
-			$md_value = AgeWallet_Metadata_Builder::build();
-			if ( is_string( $md_value ) && '' !== $md_value ) {
-				$signed_md  = AgeWallet_Helpers::instance()->sign_metadata( $md_value );
-				$agree_href = add_query_arg( 'agewallet_md', urlencode( $signed_md ), $agree_href );
-			}
-		}
-
-		// Mark checkout-origin so handle_launch() knows to attach WC cart-context
-		// metadata at click-time. The marker rides as a separate signed query param
-		// so it stays out of the final metadata payload stored against the verification.
-		if ( $agree_href && class_exists( 'AgeWallet_WooCommerce' ) && AgeWallet_WooCommerce::is_checkout_request() ) {
-			$signed_origin = AgeWallet_Helpers::instance()->sign_metadata( 'checkout' );
-			$agree_href    = add_query_arg( 'agewallet_origin', urlencode( $signed_origin ), $agree_href );
-		}
+		$agree_href = self::get_verify_url( AgeWallet_Helpers::instance()->get_current_url() );
 
 		if ( ! $agree_href ) {
 			 $this->log_debug( '[Gating Manager] ERROR: Could not get launch URL for gate HTML.' );
